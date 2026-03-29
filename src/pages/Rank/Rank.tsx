@@ -94,6 +94,10 @@ const Rank: React.FC = () => {
     const selected = accounts.filter(a => selectedIds.has(a.id));
     if (selected.length === 0) return;
 
+    // セッション更新前に activeAccountId を記録
+    const settings = await window.electron.settings.get();
+    const prevActiveId = settings.activeAccountId ?? null;
+
     setIsRunning(true);
     setProgress(0);
     setCompletedCount(0);
@@ -158,6 +162,17 @@ const Rank: React.FC = () => {
     }
 
     setIsRunning(false);
+
+    // セッション更新後、元の activeAccount の YAML に戻す
+    if (prevActiveId && (updateMode === 'session' || updateMode === 'both')) {
+      try {
+        await window.electron.riot.killClient();
+        await window.electron.riot.restoreYaml(prevActiveId);
+      } catch (e) {
+        console.error('Failed to restore active account YAML:', e);
+      }
+    }
+
     addAlert('success', '完了', '更新が完了しました。');
     await loadAccounts();
     setTimeout(() => {

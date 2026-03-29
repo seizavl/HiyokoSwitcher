@@ -12,11 +12,12 @@
     "react-eject": "react-scripts eject",
     "electron-start": "wait-on http://localhost:3000 && electron .",
     "python-start": "cd backend && python main.py",
+    "build-backend": "python -m PyInstaller --onefile --name backend --distpath backend-dist --workpath backend-build --specpath backend-build --hidden-import uvicorn.logging --hidden-import uvicorn.loops.auto --hidden-import uvicorn.protocols.http.auto --hidden-import uvicorn.protocols.websockets.auto --hidden-import uvicorn.lifespan.on backend/main.py",
     "tsc:watch": "tsc -p electron/tsconfig.json --watch",
     "electron-dev": "concurrently \"npm run react-start\" \"npm run tsc:watch\" \"npm run python-start\" \"wait-on http://localhost:3000 && npm run tsc && npm run copy-electron && electron .\"",
     "tsc": "tsc -p electron/tsconfig.json",
     "copy-electron": "node -e \"require('fs').cpSync('dist/electron', 'build/electron', {recursive: true})\" || true",
-    "electron-build": "npm run tsc && npm run react-build && npm run copy-electron && electron-builder",
+    "electron-build": "npm run build-backend && npm run tsc && npm run react-build && npm run copy-electron && electron-builder",
     "build": "npm run electron-build",
     "dev": "npm run electron-dev",
     "dist": "npm run electron-build",
@@ -71,12 +72,8 @@
     ],
     "extraFiles": [
       {
-        "from": "backend",
-        "to": "backend"
-      },
-      {
-        "from": "python",
-        "to": "python"
+        "from": "backend-dist/backend.exe",
+        "to": "backend.exe"
       }
     ],
     "directories": {

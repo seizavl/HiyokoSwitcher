@@ -66,25 +66,33 @@ const startPythonBackend = async (showConsole: boolean = false): Promise<void> =
   const projectRoot = getProjectRoot();
   const baseDir = app.isPackaged ? path.dirname(app.getPath('exe')) : projectRoot;
 
-  // 同梱 Python を優先、なければシステム python を使う
-  const bundledPython = path.join(isDev ? projectRoot : baseDir, 'python', 'python.exe');
-  const pythonCmd = fs.existsSync(bundledPython) ? bundledPython : 'python';
+  // PyInstaller でビルドした standalone exe を優先
+  const bundledExe = path.join(baseDir, 'backend.exe');
 
-  // dev かつ bundled Python がない場合は concurrently が起動するので skip
-  if (isDev && !fs.existsSync(bundledPython)) return;
+  // dev かつ bundled exe がない場合は concurrently が起動するので skip
+  if (isDev && !fs.existsSync(bundledExe)) return;
 
-  const scriptPath = path.join(baseDir, 'backend', 'main.py');
-  if (!fs.existsSync(scriptPath)) {
-    console.error('Python backend not found:', scriptPath);
-    return;
+  let cmd: string;
+  let args: string[];
+
+  if (fs.existsSync(bundledExe)) {
+    cmd = bundledExe;
+    args = [];
+    console.log(`[Python] Using bundled exe: ${bundledExe}`);
+  } else {
+    // フォールバック: システム Python + スクリプト
+    const scriptPath = path.join(baseDir, 'backend', 'main.py');
+    if (!fs.existsSync(scriptPath)) {
+      console.error('Python backend not found:', scriptPath);
+      return;
+    }
+    cmd = 'python';
+    args = [scriptPath];
+    console.log(`[Python] cmd=${cmd}, script=${scriptPath}`);
   }
 
   // 前のインスタンスの Python がポート 8000 を解放するまで待つ
   await waitForPortFree(8000, 5000);
-
-  const [cmd, args] = [pythonCmd, [scriptPath]];
-
-  console.log(`[Python] cmd=${cmd}, script=${scriptPath}`);
 
   const spawnOptions = showConsole
     ? { stdio: 'ignore' as const, creationFlags: 0x00000010 /* CREATE_NEW_CONSOLE */ }
