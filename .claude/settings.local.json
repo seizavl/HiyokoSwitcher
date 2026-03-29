@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run tsc:*)",
+      "Bash(taskkill:*)",
+      "Bash(del \"dist\\electron\\main.js\")",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout /t 10)",
+      "Bash(cmd //c taskkill //PID 51624 //F)",
+      "Bash(npm run build:electron:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout /t 2)",
+      "Bash(npm run copy-electron:*)",
+      "Bash(npm run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "name": "hiyoko-switcher",
+  "version": "1.0.0",
+  "description": "Electron + React + TypeScript Application",
+  "main": "build/electron/main.js",
+  "author": "Your Name",
+  "homepage": "./",
+  "scripts": {
+    "react-start": "react-scripts start",
+    "react-build": "react-scripts build",
+    "react-test": "react-scripts test",
+    "react-eject": "react-scripts eject",
+    "electron-start": "wait-on http://localhost:3000 && electron .",
+    "python-start": "cd backend && python main.py",
+    "tsc:watch": "tsc -p electron/tsconfig.json --watch",
+    "electron-dev": "concurrently \"npm run react-start\" \"npm run tsc:watch\" \"npm run python-start\" \"wait-on http://localhost:3000 && npm run tsc && npm run copy-electron && electron .\"",
+    "tsc": "tsc -p electron/tsconfig.json",
+    "copy-electron": "node -e \"require('fs').cpSync('dist/electron', 'build/electron', {recursive: true})\" || true",
+    "electron-build": "npm run tsc && npm run react-build && npm run copy-electron && electron-builder",
+    "build": "npm run electron-build",
+    "dev": "npm run electron-dev",
+    "dist": "npm run electron-build",
+    "make": "npm run electron-build -- --win --publish never"
+  },
+  "dependencies": {
+    "node-key-sender": "^1.0.11",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "concurrently": "^8.0.0",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.0.0",
+    "electron-is-dev": "^2.0.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^5.0.0",
+    "wait-on": "^7.0.0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "build": {
+    "extends": null,
+    "appId": "com.hiyoko.switcher",
+    "productName": "HiyokoSwitcher",
+    "icon": "public/hiyokologos.ico",
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "backend",
+        "to": "backend"
+      },
+      {
+        "from": "python",
+        "to": "python"
+      }
+    ],
+    "directories": {
+      "buildResources": "public",
+      "output": "release"
+    },
+    "win": {
+      "icon": "public/hiyokologos.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HiyokoSwitcher"
+    }
+  }
+}

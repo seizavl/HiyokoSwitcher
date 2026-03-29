@@ -1,0 +1,432 @@
+.sidebar {
+  width: 220px;
+  background: #000000;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  border-right: 1px solid #2f3336;
+  flex-shrink: 0;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: visible;
+}
+
+.sidebar.collapsed {
+  width: 70px;
+}
+
+.sidebar-logo {
+  padding: 0 20px 24px 16px;
+  display: flex;
+  border-radius: 30%;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-logo svg {
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #e7e9ea;
+  white-space: nowrap;
+  opacity: 1;
+  max-width: 200px;
+  overflow: hidden;
+  transition: opacity 0.2s ease 0.05s, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed .logo-text {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.collapse-button {
+  position: absolute;
+  right: -12px;
+  top: 20px;
+  width: 24px;
+  height: 24px;
+  background: #16181c;
+  border: 1px solid #2f3336;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.collapse-button:hover {
+  background: #1d1f23;
+  border-color: #3f4448;
+}
+
+.collapse-icon {
+  width: 14px;
+  height: 14px;
+  color: #e7e9ea;
+  display: block;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 12px;
+  transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-nav {
+  padding: 0 8px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  padding-left: 48px;
+  background: none;
+  border: none;
+  color: #71767b;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+
+.nav-item:hover {
+  background: rgba(231, 233, 234, 0.1);
+  color: #e7e9ea;
+  transform: translateX(4px);
+}
+
+.nav-item:active {
+  transform: translateX(2px) scale(0.98);
+}
+
+.nav-item.active {
+  background: #e7e9ea;
+  color: #000000;
+  box-shadow: none;
+  transform: translateX(0);
+}
+
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: #e7e9ea;
+  box-shadow: none;
+}
+
+
+
+.nav-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  position: absolute;
+  left: 17px;
+}
+
+.nav-item span {
+  white-space: nowrap;
+  opacity: 1;
+  max-width: 200px;
+  overflow: hidden;
+  transition: opacity 0.2s ease 0.05s, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed .nav-item span {
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed .nav-item {
+  padding: 12px;
+  gap: 0;
+  transform: none !important;
+}
+
+.sidebar.collapsed .nav-item:hover {
+  transform: none !important;
+}
+
+.sidebar.collapsed .nav-item:active {
+  transform: none !important;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* アクティブアカウント */
+.sidebar-active-account {
+  margin-left: 12px;
+  margin-right: 12px;
+  margin-bottom: 12px;
+  padding: 7px 7px 7px 12px;
+  background: #16181c;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+  width: calc(100% - 24px);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s cubic-bezier(0.4, 0, 0.2, 1), gap 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  
+}
+
+.sidebar-active-account:hover {
+  background: #1d1f23;
+}
+
+.active-account-avatar {
+  width: 33px;
+  height: 33px;
+  border-radius: 50%;
+  background: #2f3336;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e7e9ea;
+  flex-shrink: 0;
+  overflow: hidden;
+
+}
+
+.active-account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.active-account-info {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  opacity: 1;
+  max-width: 200px;
+  transition: opacity 0.2s ease 0.05s, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed .sidebar-active-account {
+  width: 47px;
+  height: 47px;
+  margin-top: auto;
+  margin-right: auto;
+  margin-bottom: 12px;
+  padding: 7px 2px 7px 7px;
+  gap: 0;
+  border-radius: 50%;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.sidebar.collapsed .active-account-info {
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease, max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.active-account-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e7e9ea;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.active-account-rank {
+  font-size: 12px;
+  color: #71767b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+
+/* 未ログイン状態 */
+.sidebar-active-account.no-account {
+  background: transparent;
+  border: 1px dashed #2f3336;
+}
+
+.sidebar-active-account.no-account:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: #3f4448;
+}
+
+.sidebar-active-account.no-account .active-account-avatar {
+  background: #1a1d21;
+  color: #3f4448;
+}
+
+.sidebar-active-account.no-account .active-account-name {
+  color: #4a5058;
+  font-weight: 500;
+}
+
+.active-rank-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.sidebar-game-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  margin: 0 12px 6px;
+  padding: 3px 1px;
+  background: #16181c;
+  border-radius: 9999px;
+  overflow: hidden;
+  max-height: 30px;
+  opacity: 1;
+  transition: opacity 0.2s ease 0.05s, max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed .sidebar-game-launcher {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.game-launcher-btn {
+  flex: 1;
+  padding: 5px 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.6;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease;
+}
+
+
+.game-launcher-btn:hover {
+  opacity: 1;
+  transform: scale(1.15);
+  background: rgba(255, 255, 255, 0.05);
+  margin: 2px 0;
+}
+
+.game-launcher-btn:active {
+  transform: scale(0.92);
+}
+
+.game-icon-frame {
+  width: 22px;
+  height: 22px;
+  background: #0e1012;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.game-icon-frame img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  border-radius: 2px;
+  display: block;
+}
+
+.game-icon-frame img.no-radius {
+  border-radius: 0;
+}
+
+.game-kill-btn {
+  color: #3f4448;
+}
+
+.game-kill-btn:hover {
+  color: #e05252;
+  background: rgba(224, 82, 82, 0.08) !important;
+}
+
+.game-kill-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* アカウント切り替えアニメーション */
+.account-exit .active-account-avatar {
+  animation: avatarOut 0.25s ease forwards;
+}
+
+.account-enter .active-account-avatar {
+  animation: avatarIn 0.3s ease forwards;
+}
+
+.account-exit .active-account-info {
+  animation: infoOut 0.25s ease forwards;
+}
+
+.account-enter .active-account-info {
+  animation: infoIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes avatarOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes avatarIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes infoOut {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(-10px); }
+}
+
+@keyframes infoIn {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}

@@ -1,0 +1,140 @@
+.confirm-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: confirmFadeIn 0.2s ease;
+}
+
+@keyframes confirmFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirmScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-modal {
+  background: #1a1a1a;
+  border-radius: 16px;
+  width: 340px;
+  max-width: 90%;
+  padding: 28px 24px 20px;
+  position: relative;
+  animation: confirmScaleIn 0.2s ease;
+}
+
+.confirm-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: #71767b;
+  font-size: 20px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.confirm-modal-close:hover {
+  color: #e7e9ea;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.confirm-modal-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e7e9ea;
+  text-align: center;
+  margin-bottom: 10px;
+  padding-right: 20px;
+}
+
+.confirm-modal-message {
+  font-size: 14px;
+  color: #71767b;
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.confirm-modal-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm-modal-btn {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid #2f3336;
+}
+
+.confirm-modal-btn:hover {
+  transform: translateY(-1px);
+}
+
+.confirm-modal-btn:active {
+  transform: translateY(0);
+}
+
+.confirm-modal-btn-primary {
+  background: #e7e9ea;
+  color: #000000;
+  border-color: #e7e9ea;
+}
+
+.confirm-modal-btn-primary:hover {
+  background: #d6d9db;
+  border-color: #d6d9db;
+}
+
+.confirm-modal-btn-secondary {
+  background: transparent;
+  color: #e7e9ea;
+  border-color: #2f3336;
+}
+
+.confirm-modal-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.confirm-modal-btn-warning {
+  background: transparent;
+  color: #ffd400;
+  border-color: rgba(255, 212, 0, 0.4);
+}
+
+.confirm-modal-btn-warning:hover {
+  background: rgba(255, 212, 0, 0.1);
+}

@@ -1,0 +1,41 @@
+import React from 'react';
+
+interface ValtsLogoProps {
+  size?: number;
+}
+
+const ValtsLogo: React.FC<ValtsLogoProps> = ({ size = 50 }) => (
+  <svg width={size} height={size} viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="valts-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#2a2a3d" />
+        <stop offset="100%" stopColor="#1e1e30" />
+      </linearGradient>
+    </defs>
+    {/* Background */}
+    <rect x="32" y="32" width="448" height="448" rx="80" ry="80" fill="url(#valts-bg)" />
+    {/* Chick scaled 0.9x, centered */}
+    <g transform="translate(256,256) scale(0.9) translate(-256,-256)">
+      {/* Tail */}
+      <ellipse cx="120" cy="250" rx="20" ry="40" fill="#ffca28" transform="rotate(20, 120, 250)" />
+      {/* Body - egg shaped */}
+      <ellipse cx="250" cy="290" rx="120" ry="110" fill="#ffd54f" />
+      {/* Head - right side */}
+      <circle cx="340" cy="190" r="80" fill="#ffd54f" />
+      {/* Hair tuft */}
+      <ellipse cx="340" cy="112" rx="12" ry="18" fill="#ffc107" />
+      <ellipse cx="352" cy="116" rx="10" ry="14" fill="#ffc107" />
+      {/* Eye */}
+      <circle cx="365" cy="180" r="12" fill="#161625" />
+      {/* Beak - pointing right */}
+      <path d="M 415 200 L 445 210 L 415 220" fill="#ff9800" />
+      {/* Wing */}
+      <ellipse cx="220" cy="270" rx="45" ry="30" fill="#ffca28" transform="rotate(-8, 220, 270)" />
+      {/* Feet */}
+      <path d="M 270 390 L 260 425 L 290 425 Z" fill="#ff9800" />
+      <path d="M 320 385 L 310 420 L 340 420 Z" fill="#ff9800" />
+    </g>
+  </svg>
+);
+
+export default ValtsLogo;
