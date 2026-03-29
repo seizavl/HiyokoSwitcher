@@ -29,6 +29,8 @@ yarn-error.log*
 python/
 __pycache__/
 *.pyc
+backend-build/
+backend-dist/
 
 # Logs
 debug.log
