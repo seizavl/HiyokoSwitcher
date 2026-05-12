@@ -22,6 +22,77 @@ function decrypt(data: string): string {
   return decrypted.toString('utf8');
 }
 
+// ============================
+// Riot Cookie YAML helpers
+// ============================
+// 設計: 認証のたびに jar から最新クッキーを取り出し、YAML の value だけを
+// 正規表現で差し替えてアトミック書き込み（tmp → rename）で永続化する。
+// 「最初のセッション YAML を保持する」のではなく、認証のたびに上書き更新する。
+
+interface RiotCookies {
+  ssid?: string;
+  asid?: string;
+  csid?: string;
+  ccid?: string;
+  clid?: string;
+  sub?: string;
+  tdid?: string;
+}
+
+const RIOT_SESSION_COOKIE_NAMES = ['ssid', 'asid', 'csid', 'ccid', 'clid', 'sub'] as const;
+
+// YAML からクッキーを抽出
+function extractRiotCookiesFromYaml(yamlContent: string): RiotCookies | null {
+  const content = yamlContent.replace(/\r\n/g, '\n');
+  const cookies: RiotCookies = {};
+  for (const name of RIOT_SESSION_COOKIE_NAMES) {
+    const regex = new RegExp(
+      `name:\\s*"?${name}"?\\s*\\n(?:\\s+\\w+:.*\\n)*?\\s+value:\\s*"([^"]*)"`,
+      'm'
+    );
+    const match = content.match(regex);
+    if (match) (cookies as any)[name] = match[1];
+  }
+  const tdidMatch = content.match(
+    /rso-authenticator:\s*\n\s+tdid:[\s\S]*?value:\s*"([^"]*)"/
+  );
+  if (tdidMatch) cookies.tdid = tdidMatch[1];
+  if (!cookies.ssid) return null;
+  return cookies;
+}
+
+// YAML 内のクッキー value だけを差し替え（フォーマットは保持・CRLF 許容）
+function applyRiotCookieUpdates(yamlContent: string, cookies: RiotCookies): string {
+  let updated = yamlContent;
+  for (const name of RIOT_SESSION_COOKIE_NAMES) {
+    const value = cookies[name];
+    if (!value) continue;
+    const re = new RegExp(
+      `(name:\\s*"?${name}"?\\s*\\r?\\n(?:\\s+\\w+:.*\\r?\\n)*?\\s+value:\\s*)"[^"]*"`,
+      'm'
+    );
+    updated = updated.replace(re, `$1"${value}"`);
+  }
+  if (cookies.tdid) {
+    const tdidRe =
+      /(rso-authenticator:\s*\r?\n\s+tdid:\s*\r?\n(?:\s+\w+:.*\r?\n)*?\s+value:\s*)"[^"]*"/m;
+    updated = updated.replace(tdidRe, `$1"${cookies.tdid}"`);
+  }
+  return updated;
+}
+
+// 認証で得た最新クッキーを YAML に書き戻す（アトミック）。
+// 認証のたびに必ず呼ぶことで、保存済み YAML を最新セッションで上書き更新する。
+function persistRiotCookies(yamlPath: string, cookies: RiotCookies): boolean {
+  if (!fs.existsSync(yamlPath)) return false;
+  const original = fs.readFileSync(yamlPath, 'utf-8');
+  const updated = applyRiotCookieUpdates(original, cookies);
+  const tmp = yamlPath + '.tmp';
+  fs.writeFileSync(tmp, updated, 'utf-8');
+  fs.renameSync(tmp, yamlPath);
+  return true;
+}
+
 let mainWindow: BrowserWindow | null = null;
 let isDev = false;
 
@@ -118,7 +189,15 @@ const startPythonBackend = async (showConsole: boolean = false): Promise<void> =
 
 const stopPythonBackend = (): void => {
   if (pythonProcess) {
-    pythonProcess.kill();
+    const pid = pythonProcess.pid;
+    try {
+      if (pid && process.platform === 'win32') {
+        // /T で子プロセスも含めてツリーごと強制終了
+        require('child_process').execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+      } else {
+        pythonProcess.kill();
+      }
+    } catch (_) {}
     pythonProcess = null;
   }
 };
@@ -903,11 +982,14 @@ app.whenReady().then(() => {
       ? rankData.data.images.large
       : 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/0/largeicon.png';
 
+    // accountData が 200 でない（レート制限など）場合は既存の level/usericon を温存する
+    const prev = account.valorant ?? {};
+    const accountOk = accountData.status === 200;
     account.valorant = {
       rank,
       rankicon: rankIcon,
-      level: accountData.data?.account_level || 0,
-      usericon: accountData.data?.card?.small || '',
+      level: accountOk ? (accountData.data?.account_level ?? prev.level ?? 0) : (prev.level ?? 0),
+      usericon: accountOk ? (accountData.data?.card?.small ?? prev.usericon ?? '') : (prev.usericon ?? ''),
     };
 
     saveAccounts(accountsFilePath, accounts);
@@ -1047,48 +1129,10 @@ app.whenReady().then(() => {
   // Shop 機能 (ストアフロント取得)
   // ============================
 
-  // YAML から Cookie を抽出
-  interface RiotCookies {
-    ssid?: string;
-    asid?: string;
-    csid?: string;
-    ccid?: string;
-    clid?: string;
-    sub?: string;
-    tdid?: string;
-  }
-
-  function extractCookiesFromYaml(yamlContent: string): RiotCookies | null {
-    // 改行コードを統一 (Windows \r\n → \n)
-    const content = yamlContent.replace(/\r\n/g, '\n');
-    const cookies: RiotCookies = {};
-
-    // セッション Cookie を抽出
-    const cookieNames = ['ssid', 'asid', 'csid', 'ccid', 'clid', 'sub'];
-    for (const name of cookieNames) {
-      const regex = new RegExp(
-        `name:\\s*"?${name}"?\\s*\\n(?:\\s+\\w+:.*\\n)*?\\s+value:\\s*"([^"]*)"`,
-        'm'
-      );
-      const match = content.match(regex);
-      if (match) {
-        (cookies as any)[name] = match[1];
-      }
-    }
-
-    // tdid を抽出
-    const tdidMatch = content.match(
-      /rso-authenticator:\s*\n\s+tdid:[\s\S]*?value:\s*"([^"]*)"/
-    );
-    if (tdidMatch) {
-      cookies.tdid = tdidMatch[1];
-    }
-
-    if (!cookies.ssid) return null;
-    return cookies;
-  }
-
   // Simple Cookie Jar
+  // setInitial で YAML から読んだクッキーを積み、handleSetCookies で
+  // 認証レスポンスの Set-Cookie を取り込む。認証後 getCookies() で
+  // 構造化された値を取り出し、persistRiotCookies で YAML に書き戻す。
   class SimpleCookieJar {
     private cookies: Map<string, string> = new Map();
 
@@ -1114,6 +1158,16 @@ app.whenReady().then(() => {
       return Array.from(this.cookies.entries())
         .map(([name, value]) => `${name}=${value}`)
         .join('; ');
+    }
+
+    // 永続化対象のクッキーだけ構造化して返す
+    getCookies(): RiotCookies {
+      const result: RiotCookies = {};
+      for (const name of [...RIOT_SESSION_COOKIE_NAMES, 'tdid'] as const) {
+        const value = this.cookies.get(name);
+        if (value) (result as any)[name] = value;
+      }
+      return result;
     }
   }
 
@@ -1234,7 +1288,7 @@ app.whenReady().then(() => {
     }
 
     const yamlContent = fs.readFileSync(yamlPath, 'utf-8');
-    const cookies = extractCookiesFromYaml(yamlContent);
+    const cookies = extractRiotCookiesFromYaml(yamlContent);
     if (!cookies) {
       throw new Error('Cookieが見つかりません（再ログインが必要です）');
     }
@@ -1433,37 +1487,8 @@ app.whenReady().then(() => {
       );
     }
 
-    // 13. Cookie 更新を YAML に書き戻し
-    let updatedYaml = yamlContent;
-    const cookieNames = ['ssid', 'asid', 'csid', 'ccid', 'clid', 'sub'];
-    const jarStr = jar.getCookieString();
-    const jarPairs: Record<string, string> = {};
-    for (const pair of jarStr.split('; ')) {
-      const eqIdx = pair.indexOf('=');
-      if (eqIdx > 0) {
-        jarPairs[pair.substring(0, eqIdx)] = pair.substring(eqIdx + 1);
-      }
-    }
-    for (const cName of cookieNames) {
-      if (jarPairs[cName]) {
-        const re = new RegExp(
-          `(name:\\s*"?${cName}"?\\s*\\n(?:\\s+\\w+:.*\\n)*?\\s+value:\\s*)"[^"]*"`,
-          'm'
-        );
-        updatedYaml = updatedYaml.replace(re, `$1"${jarPairs[cName]}"`);
-      }
-    }
-    if (jarPairs['tdid']) {
-      const tdidRe =
-        /(rso-authenticator:\s*\n\s+tdid:\s*\n(?:\s+\w+:.*\n)*?\s+value:\s*)"[^"]*"/m;
-      updatedYaml = updatedYaml.replace(tdidRe, `$1"${jarPairs['tdid']}"`);
-    }
-    // 更新があれば書き戻す
-    if (updatedYaml !== yamlContent) {
-      const tmpPath = yamlPath + '.tmp';
-      fs.writeFileSync(tmpPath, updatedYaml, 'utf-8');
-      fs.renameSync(tmpPath, yamlPath);
-    }
+    // 13. 認証で得た最新クッキーを YAML に永続化（毎回上書き、アトミック）
+    persistRiotCookies(yamlPath, jar.getCookies());
 
     return {
       dailyOffers,
@@ -1476,6 +1501,10 @@ app.whenReady().then(() => {
   const settings = loadSettings(settingsFilePath);
   startPythonBackend(settings.showPythonConsole === true); // await しない: ウィンドウ表示と並行して起動
   createWindow();
+});
+
+app.on('before-quit', (): void => {
+  stopPythonBackend();
 });
 
 app.on('window-all-closed', (): void => {

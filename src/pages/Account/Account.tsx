@@ -621,10 +621,6 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       case 'success':
         if (refreshTargetId) {
           try {
-            const killed = await window.electron.riot.killClient();
-            if (killed) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
             await window.electron.riot.saveYaml(refreshTargetId);
             const settings = await window.electron.settings.get();
             await window.electron.settings.save({ ...settings, activeAccountId: refreshTargetId });

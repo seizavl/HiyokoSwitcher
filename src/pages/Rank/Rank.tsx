@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './Rank.css';
-import { useAlert } from '../../components/AlertProvider';
 import ConfirmModal from '../../components/ConfirmModal';
 
 interface AccountType {
@@ -20,7 +19,6 @@ type UpdateMode = 'rank' | 'session' | 'both';
 type ItemStatus = 'idle' | 'running' | 'done' | 'error' | 'skipped';
 
 const Rank: React.FC = () => {
-  const { addAlert } = useAlert();
   const [accounts, setAccounts] = useState<AccountType[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [updateMode, setUpdateMode] = useState<UpdateMode>('rank');
@@ -110,7 +108,12 @@ const Rank: React.FC = () => {
     let completed = 0;
     const total = selected.length;
 
-    for (const account of selected) {
+    for (let i = 0; i < selected.length; i++) {
+      const account = selected[i];
+      // Henrik API のレートリミット回避のため、2 件目以降は短いディレイを挟む
+      if (i > 0 && (updateMode === 'rank' || updateMode === 'both')) {
+        await new Promise(r => setTimeout(r, 500));
+      }
       updateStatus(account.id, 'running');
       try {
         if (updateMode === 'rank' || updateMode === 'both') {
@@ -173,7 +176,6 @@ const Rank: React.FC = () => {
       }
     }
 
-    addAlert('success', '完了', '更新が完了しました。');
     await loadAccounts();
     setTimeout(() => {
       setProgress(0);
