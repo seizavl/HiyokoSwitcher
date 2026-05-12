@@ -20,7 +20,18 @@ Valorant のマルチアカウント管理・自動ログインツール。
 - **プレイヤー検索** — 戦績・MMR の検索
 
 ---
+### アカウント管理
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7" width="45%" />
+  <img src="https://github.com/user-attachments/assets/104833ab-ca0e-4a68-8252-d78a6ca481ce" width="45%" />
+</p>
 
+### ランク・データ表示
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113" width="60%" />
+</p>
+
+---
 ## 必要なもの
 
 | 項目 | バージョン |
