@@ -1,14 +1,13 @@
-# HiyokoSwitcher
-
-Valorant のマルチアカウント管理・自動ログインツール。
-
-![Electron](https://img.shields.io/badge/Electron-27-47848F?logo=electron)
-![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript)
-![Python](https://img.shields.io/badge/Python-FastAPI-009688?logo=fastapi)
-![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-0078D4?logo=windows)
-
----
+<p align="center">
+    <a href="s">
+        <img width="200" height="200" alt="hiyokologo" src="https://github.com/user-attachments/assets/ec1f093c-3525-418d-b743-2ea70c9ec568" />
+    </a>
+<h5 align="center">HiyokoSwitcher<br><br>
+<a href="https://github.com/seizavl/HiyokoSwitcher/releases" >
+    <img src="https://img.shields.io/github/downloads/seizavl/HiyokoSwitcher/total?labelColor=1E1E1E&color=466bff&style=for-the-badge" alt="Download"/ >
+</a>
+</h5>
+</p>
 
 ## 機能
 
@@ -19,14 +18,15 @@ Valorant のマルチアカウント管理・自動ログインツール。
 - **ショップ閲覧** — デイリーショップ・ナイトマーケットの確認
 - **プレイヤー検索** — 戦績・MMR の検索
 
----
-### アカウント管理
+
+## アカウント管理
+
 <p align="center">
   <img src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7" width="45%" />
   <img src="https://github.com/user-attachments/assets/104833ab-ca0e-4a68-8252-d78a6ca481ce" width="45%" />
 </p>
 
-### ランク・データ表示
+## ランク・データ表示
 <p align="center">
   <img src="https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113" width="60%" />
 </p>
