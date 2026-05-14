@@ -1,6 +1,6 @@
 {
   "name": "hiyoko-switcher",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Electron + React + TypeScript Application",
   "main": "build/electron/main.js",
   "author": "Your Name",
@@ -21,7 +21,10 @@
     "build": "npm run electron-build",
     "dev": "npm run electron-dev",
     "dist": "npm run electron-build",
-    "make": "npm run electron-build -- --win --publish never"
+    "make": "npm run electron-build -- --win --publish never",
+    "release:patch": "npm version patch --no-git-tag-version && npm run electron-build",
+    "release:minor": "npm version minor --no-git-tag-version && npm run electron-build",
+    "release:major": "npm version major --no-git-tag-version && npm run electron-build"
   },
   "dependencies": {
     "node-key-sender": "^1.0.11",

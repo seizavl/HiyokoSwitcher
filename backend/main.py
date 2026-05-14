@@ -82,7 +82,14 @@ def move_mouse_task():
 
 def riot_login_task(account_id: str, password: str, riot_client_path: str, launch_second: int = 5, extra_wait: bool = False, skip_stay: bool = False):
     """Riot Client にログインする処理"""
-    subprocess.Popen(riot_client_path)
+    # `cmd /c start` 経由で起動して Riot Client を Python のプロセスツリーから切り離す。
+    # こうしないと Switcher 終了時の `taskkill /F /T`（backend.exe の終了処理）に
+    # Riot Client まで巻き込まれて一緒に閉じてしまう。
+    subprocess.Popen(
+        ["cmd", "/c", "start", "", riot_client_path],
+        shell=False,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
 
     i = 0
     while True:
