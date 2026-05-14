@@ -192,8 +192,8 @@ const stopPythonBackend = (): void => {
     const pid = pythonProcess.pid;
     try {
       if (pid && process.platform === 'win32') {
-        // /T で子プロセスも含めてツリーごと強制終了
-        require('child_process').execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+        // Python だけ終了する（/T を付けると Python が起動した Riot Client まで巻き添えで死ぬ）
+        require('child_process').execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
       } else {
         pythonProcess.kill();
       }
