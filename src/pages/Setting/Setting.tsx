@@ -31,7 +31,12 @@ const Setting: React.FC = () => {
 
   const handleSave = async () => {
     try {
+      // settings.save はファイルを丸ごと上書きするため、
+      // この画面で扱わない activeAccountId / launchSecond などを失わないよう
+      // 既存の設定を読み込んでマージする
+      const current = await window.electron.settings.get();
       await window.electron.settings.save({
+        ...current,
         apiKey,
         riotClientPath,
         autoCheckValorant,
