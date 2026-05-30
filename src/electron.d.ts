@@ -86,6 +86,30 @@ interface ElectronAPI {
   shop: {
     getStorefront: (accountId: string) => Promise<ShopStorefront>;
   };
+  livegame: {
+    getState: () => Promise<'ingame' | 'pregame' | 'menus' | 'not_running'>;
+    getMatchData: (force?: boolean) => Promise<LiveGameResult>;
+  };
+}
+
+export interface LiveGamePlayer {
+  puuid: string;
+  name: string;
+  tag: string;
+  team: string;
+  agentName: string;
+  agentIcon: string;
+  rankName: string;
+  rankIcon: string;
+  accountLevel: number;
+  isSelf: boolean;
+}
+
+export interface LiveGameResult {
+  state: 'not_running' | 'menus' | 'pregame' | 'ingame' | 'error';
+  matchId?: string;
+  players?: LiveGamePlayer[];
+  error?: string;
 }
 
 export interface ShopItem {

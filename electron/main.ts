@@ -372,6 +372,73 @@ const fetchValorantAPI = (url: string, apiKey: string): Promise<any> => {
   });
 };
 
+// ============================
+// LiveGame ヘルパー
+// ============================
+
+const getLockfile = (): { port: number; password: string } | null => {
+  const localAppData = process.env.LOCALAPPDATA
+    || path.join(app.getPath('home'), 'AppData', 'Local');
+  const lockfilePath = path.join(
+    localAppData, 'Riot Games', 'Riot Client', 'Config', 'lockfile'
+  );
+  if (!fs.existsSync(lockfilePath)) return null;
+  const parts = fs.readFileSync(lockfilePath, 'utf-8').trim().split(':');
+  if (parts.length < 5) return null;
+  return { port: parseInt(parts[2]), password: parts[3] };
+};
+
+const localApiRequest = (
+  url: string,
+  opts: { method?: string; headers?: Record<string, string>; body?: string } = {}
+): Promise<{ statusCode: number; body: string }> => {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const req = https.request(
+      {
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname + u.search,
+        method: opts.method || 'GET',
+        headers: opts.headers || {},
+        rejectUnauthorized: false,
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (c: Buffer) => { data += c; });
+        res.on('end', () => resolve({ statusCode: res.statusCode || 0, body: data }));
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(5000, () => { req.destroy(); reject(new Error('Local API timeout')); });
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+};
+
+let liveAgentCache: Map<string, { displayName: string; displayIcon: string }> | null = null;
+let liveTierCache: Map<number, { tierName: string; smallIcon: string }> | null = null;
+let cachedClientVersion = 'release-09.00-shipping-9-3000000';
+let cachedRegion = 'ap';
+let cachedShard = 'ap';
+
+interface LivePlayerData {
+  name: string; tag: string; level: number;
+  rankName: string; rankIcon: string;
+}
+// PUUIDをキーにした永続キャッシュ（試合またぎで保持）
+const livePlayerCache = new Map<string, LivePlayerData>();
+// バックグラウンド取得中のPUUIDセット（二重取得防止）
+const liveFetchingSet = new Set<string>();
+
+const SHARD_MAP: Record<string, string> = {
+  ap: 'ap', jp: 'ap', kr: 'ap',
+  eu: 'eu', na: 'na', latam: 'latam', br: 'br',
+};
+
+const LIVE_CLIENT_PLATFORM = 'ew0KCSJwbGF0Zm9ybVR5cGUiOiAiUEMiLA0KCSJwbGF0Zm9ybU9TIjogIldpbmRvd3MiLA0KCSJwbGF0Zm9ybU9TVmVyc2lvbiI6ICIxMC4wLjE5MDQyLjEuMjU2LjY0Yml0IiwNCgkicGxhdGZvcm1DaGlwc2V0IjogIlVua25vd24iDQp9';
+
+
 const createWindow = (): void => {
   isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -1539,6 +1606,335 @@ app.whenReady().then(() => {
       nightMarket,
       nightMarketRemainingSeconds,
     };
+  });
+
+  // ============================
+  // LiveGame IPC ハンドラー
+  // ============================
+
+  // ゲーム状態だけを軽量に返す（サイドバー用）
+  ipcMain.handle('livegame:getState', async (): Promise<'ingame' | 'pregame' | 'menus' | 'not_running'> => {
+    try {
+      const lockfile = getLockfile();
+      if (!lockfile) return 'not_running';
+      const localAuth = `Basic ${Buffer.from(`riot:${lockfile.password}`).toString('base64')}`;
+
+      let tokenData: any;
+      try {
+        const r = await localApiRequest(
+          `https://127.0.0.1:${lockfile.port}/entitlements/v1/token`,
+          { headers: { Authorization: localAuth } }
+        );
+        tokenData = JSON.parse(r.body);
+      } catch { return 'not_running'; }
+
+      const accessToken: string = tokenData?.accessToken;
+      const entitlementsToken: string = tokenData?.token;
+      const puuid: string = tokenData?.subject;
+      if (!accessToken || !puuid) return 'not_running';
+
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Riot-Entitlements-JWT': entitlementsToken,
+        'X-Riot-ClientPlatform': LIVE_CLIENT_PLATFORM,
+        'X-Riot-ClientVersion': cachedClientVersion,
+      };
+
+      // キャッシュ済みリージョンから試し、見つからなければ主要リージョンを試す
+      const regionsToTry = [...new Set([cachedRegion, 'jp', 'ap', 'kr', 'na', 'eu'])];
+      for (const region of regionsToTry) {
+        const shard = SHARD_MAP[region] || 'ap';
+        try {
+          const r = await shopHttpsRequest(
+            `https://glz-${region}-1.${shard}.a.pvp.net/core-game/v1/players/${puuid}`,
+            { headers }
+          );
+          if (r.statusCode === 200) return 'ingame';
+        } catch {}
+        try {
+          const r = await shopHttpsRequest(
+            `https://glz-${region}-1.${shard}.a.pvp.net/pregame/v1/players/${puuid}`,
+            { headers }
+          );
+          if (r.statusCode === 200) return 'pregame';
+        } catch {}
+      }
+      return 'menus';
+    } catch { return 'not_running'; }
+  });
+
+  ipcMain.handle('livegame:getMatchData', async (_event, force: boolean = false) => {
+    try {
+      // 1. Lockfile 読み込み
+      const lockfile = getLockfile();
+      if (!lockfile) return { state: 'not_running' };
+
+      const localAuth = `Basic ${Buffer.from(`riot:${lockfile.password}`).toString('base64')}`;
+
+      // 2. ローカル API からトークン取得
+      let tokenData: any;
+      try {
+        const tokenRes = await localApiRequest(
+          `https://127.0.0.1:${lockfile.port}/entitlements/v1/token`,
+          { headers: { Authorization: localAuth } }
+        );
+        tokenData = JSON.parse(tokenRes.body);
+      } catch {
+        return { state: 'not_running' };
+      }
+
+      const accessToken: string = tokenData?.accessToken;
+      const entitlementsToken: string = tokenData?.token;
+      const puuid: string = tokenData?.subject;
+      if (!accessToken || !puuid) return { state: 'not_running' };
+
+      // 3. 外部セッションからリージョン検出
+      let region = 'ap';
+      try {
+        const sessRes = await localApiRequest(
+          `https://127.0.0.1:${lockfile.port}/product-session/v1/external-sessions`,
+          { headers: { Authorization: localAuth } }
+        );
+        const sessions: Record<string, any> = JSON.parse(sessRes.body) || {};
+        const valSess = Object.values(sessions).find((s: any) => s.productId === 'valorant');
+        if (valSess?.launchConfiguration?.arguments) {
+          const deployArg = (valSess.launchConfiguration.arguments as string[]).find(
+            (a) => a.startsWith('--ares-deployment=')
+          );
+          if (deployArg) region = deployArg.split('=')[1].replace('valorant-', '');
+        }
+      } catch {}
+
+      // 4. クライアントバージョン取得（キャッシュ更新）
+      let clientVersion = cachedClientVersion;
+      try {
+        const verRes = await shopHttpsRequest('https://valorant-api.com/v1/version', {});
+        clientVersion = JSON.parse(verRes.body).data?.riotClientVersion || clientVersion;
+        cachedClientVersion = clientVersion;
+      } catch {}
+
+      const riotHeaders: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Riot-Entitlements-JWT': entitlementsToken,
+        'X-Riot-ClientPlatform': LIVE_CLIENT_PLATFORM,
+        'X-Riot-ClientVersion': clientVersion,
+      };
+
+      // 5. core-game / pregame エンドポイントを直接叩いてゲーム状態を判定
+      //    presences は不安定なため使わず、リージョンも複数試みる
+      const regionsToTry = [...new Set([region, 'jp', 'ap', 'kr', 'na', 'eu'])];
+
+      let gameState: 'ingame' | 'pregame' | null = null;
+      let matchId = '';
+      let activeRegion = region;
+      let activeShard = SHARD_MAP[region] || 'ap';
+
+      for (const tryRegion of regionsToTry) {
+        const tryShard = SHARD_MAP[tryRegion] || 'ap';
+
+        // core-game を試す
+        try {
+          const r = await shopHttpsRequest(
+            `https://glz-${tryRegion}-1.${tryShard}.a.pvp.net/core-game/v1/players/${puuid}`,
+            { headers: riotHeaders }
+          );
+          if (r.statusCode === 200) {
+            gameState = 'ingame';
+            matchId = JSON.parse(r.body).MatchID;
+            activeRegion = tryRegion;
+            activeShard = tryShard;
+            cachedRegion = tryRegion;
+            cachedShard = tryShard;
+            break;
+          }
+        } catch {}
+
+        // pregame を試す
+        try {
+          const r = await shopHttpsRequest(
+            `https://glz-${tryRegion}-1.${tryShard}.a.pvp.net/pregame/v1/players/${puuid}`,
+            { headers: riotHeaders }
+          );
+          if (r.statusCode === 200) {
+            gameState = 'pregame';
+            matchId = JSON.parse(r.body).MatchID;
+            activeRegion = tryRegion;
+            activeShard = tryShard;
+            cachedRegion = tryRegion;
+            cachedShard = tryShard;
+            break;
+          }
+        } catch {}
+      }
+
+      if (!gameState) {
+        // 試合終了 → キャッシュをリセット
+        livePlayerCache.clear();
+        liveFetchingSet.clear();
+        return { state: 'menus' };
+      }
+
+      // 6. マッチ詳細取得
+      const gameEp = gameState === 'pregame' ? 'pregame' : 'core-game';
+      const matchRes = await shopHttpsRequest(
+        `https://glz-${activeRegion}-1.${activeShard}.a.pvp.net/${gameEp}/v1/matches/${matchId}`,
+        { headers: riotHeaders }
+      );
+      if (matchRes.statusCode !== 200) {
+        return { state: gameState, players: [] };
+      }
+      const matchData = JSON.parse(matchRes.body);
+
+      // プレイヤーリスト構築
+      let rawPlayers: any[] = [];
+      if (gameState === 'pregame') {
+        for (const team of (matchData.Teams || [])) {
+          for (const p of (team.Players || [])) {
+            rawPlayers.push({ ...p, TeamID: team.TeamID });
+          }
+        }
+      } else {
+        rawPlayers = matchData.Players || [];
+      }
+
+      if (rawPlayers.length === 0) {
+        return { state: gameState, players: [] };
+      }
+
+      // 8. エージェントキャッシュ読み込み（アイコン取得用）
+      if (!liveAgentCache) {
+        const res = await shopHttpsRequest('https://valorant-api.com/v1/agents?isPlayableCharacter=true', {});
+        const data = JSON.parse(res.body);
+        liveAgentCache = new Map();
+        for (const agent of (data.data || [])) {
+          liveAgentCache.set(agent.uuid.toLowerCase(), {
+            displayName: agent.displayName,
+            displayIcon: agent.displayIconSmall || agent.displayIcon,
+          });
+        }
+      }
+
+      // 9. ランクキャッシュ読み込み
+      if (!liveTierCache) {
+        const res = await shopHttpsRequest('https://valorant-api.com/v1/competitivetiers', {});
+        const data = JSON.parse(res.body);
+        liveTierCache = new Map();
+        const latestTiers = (data.data || [])[(data.data || []).length - 1]?.tiers || [];
+        for (const tier of latestTiers) {
+          liveTierCache.set(tier.tier, { tierName: tier.tierName, smallIcon: tier.smallIcon || '' });
+        }
+      }
+
+      // 10. キャッシュにいないプレイヤーをバックグラウンドで取得
+      const settings = loadSettings(settingsFilePath);
+      const apiKey = settings.apiKey || '';
+      const henrikRegion = activeShard;
+
+      const uncachedPuuids = rawPlayers
+        .map((p: any) => p.Subject as string)
+        .filter((pid: string) => !livePlayerCache.has(pid) && !liveFetchingSet.has(pid));
+
+      if (uncachedPuuids.length > 0) {
+        for (const pid of uncachedPuuids) liveFetchingSet.add(pid);
+
+        const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T> =>
+          Promise.race([p, new Promise<T>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+        const fetchMissing = async () => {
+          for (const pid of uncachedPuuids) {
+            try {
+              const [accountData, mmrData] = await Promise.all([
+                withTimeout(fetchValorantAPI(
+                  `https://api.henrikdev.xyz/valorant/v1/by-puuid/account/${pid}`, apiKey
+                ), 5000),
+                withTimeout(fetchValorantAPI(
+                  `https://api.henrikdev.xyz/valorant/v1/by-puuid/mmr/${henrikRegion}/${pid}`, apiKey
+                ), 5000),
+              ]);
+
+              if (accountData?.data?.name) {
+                livePlayerCache.set(pid, {
+                  name: accountData.data.name,
+                  tag: accountData.data.tag || '',
+                  level: accountData.data.account_level ?? 0,
+                  rankName: mmrData?.data?.currenttierpatched || '',
+                  rankIcon: mmrData?.data?.images?.small || '',
+                });
+              } else {
+                // HenrikDev に登録がない場合は Riot name-service で名前だけ取得
+                const body = JSON.stringify([pid]);
+                const nameRes = await shopHttpsRequest(
+                  `https://pd.${activeShard}.a.pvp.net/name-service/v2/players`,
+                  {
+                    method: 'PUT',
+                    headers: { ...riotHeaders, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body).toString() },
+                    body,
+                  }
+                );
+                if (nameRes.statusCode === 200) {
+                  const entries = JSON.parse(nameRes.body);
+                  const entry = Array.isArray(entries) && entries.find((e: any) => e.Subject === pid);
+                  if (entry?.GameName) {
+                    livePlayerCache.set(pid, {
+                      name: entry.GameName,
+                      tag: entry.TagLine || '',
+                      level: 0,
+                      rankName: '',
+                      rankIcon: '',
+                    });
+                  }
+                }
+              }
+            } catch {
+              // 失敗・タイムアウト → キャッシュしない → 次回ポーリングで再試行
+            } finally {
+              liveFetchingSet.delete(pid);
+            }
+            await new Promise(r => setTimeout(r, 200));
+          }
+        };
+
+        if (force) {
+          // 手動更新: 取得完了まで待つ
+          await fetchMissing();
+        } else {
+          // 自動ポーリング: バックグラウンドで取得
+          fetchMissing();
+        }
+      }
+
+      // 11. プレイヤーデータを整形（キャッシュ済みは実名、未取得はマッチデータのフォールバック）
+      const enrichedPlayers = rawPlayers.map((p: any) => {
+        const cached = livePlayerCache.get(p.Subject);
+        const agentId = (p.CharacterID || '').toLowerCase();
+        const agentInfo = liveAgentCache!.get(agentId) || { displayName: 'Unknown', displayIcon: '' };
+        const rankTier: number = p.SeasonalBadgeInfo?.Rank ?? p.CompetitiveTier ?? 0;
+        const tierInfo = liveTierCache!.get(rankTier) || { tierName: 'Unranked', smallIcon: '' };
+
+        return {
+          puuid: p.Subject,
+          name: cached?.name || p.Subject.slice(0, 8),
+          tag: cached?.tag || '',
+          team: p.TeamID || 'Unknown',
+          agentName: agentInfo.displayName,
+          agentIcon: agentInfo.displayIcon,
+          rankName: cached?.rankName || tierInfo.tierName,
+          rankIcon: cached?.rankIcon || tierInfo.smallIcon,
+          accountLevel: cached?.level ?? (p.PlayerIdentity?.AccountLevel ?? 0),
+          isSelf: p.Subject === puuid,
+        };
+      });
+
+      return {
+        state: gameState,
+        matchId,
+        players: enrichedPlayers,
+      };
+
+    } catch (error: any) {
+      console.error('[LiveGame]', error);
+      return { state: 'error', error: error.message };
+    }
   });
 
   const settings = loadSettings(settingsFilePath);

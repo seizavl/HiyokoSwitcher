@@ -195,7 +195,12 @@ function saveFavorites(list: FavoriteEntry[]) {
   localStorage.setItem(FAVORITES_KEY, JSON.stringify(list));
 }
 
-const Search: React.FC = () => {
+interface SearchProps {
+  autoSearch?: { name: string; tag: string } | null;
+  onAutoSearchDone?: () => void;
+}
+
+const Search: React.FC<SearchProps> = ({ autoSearch, onAutoSearchDone }) => {
   const [query, setQuery] = useState('');
   const [region, setRegion] = useState('ap');
   const tierIconsRef = useRef<Record<number, string>>({});
@@ -225,6 +230,14 @@ const Search: React.FC = () => {
   const [matchDetailError, setMatchDetailError] = useState<string | null>(null);
 
   const isFav = accountData ? favorites.some(f => f.puuid === accountData.puuid) : false;
+
+  // LiveGame からのプレイヤークリック対応
+  React.useEffect(() => {
+    if (!autoSearch?.name || !autoSearch?.tag) return;
+    searchByPlayer(autoSearch.name, autoSearch.tag);
+    onAutoSearchDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSearch]);
 
   const handleClickStar = () => {
     if (!accountData) return;

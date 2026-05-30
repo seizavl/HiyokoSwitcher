@@ -3,15 +3,16 @@ import './Sidebar.css';
 import { ActiveAccount } from '../App';
 import ValtsLogo from './hiyokologo';
 
-type Page = 'account' | 'setting' | 'rank' | 'search';
+type Page = 'account' | 'setting' | 'rank' | 'search' | 'livegame';
 
 interface SidebarProps {
   currentPage: Page;
   onPageChange: (page: Page) => void;
   activeAccount: ActiveAccount | null;
+  isIngame?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAccount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAccount, isIngame }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [displayAccount, setDisplayAccount] = useState<ActiveAccount | null>(activeAccount);
   const [animClass, setAnimClass] = useState('');
@@ -83,6 +84,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAcco
             <path d="M16.5 16.5L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
           </svg>
           <span>Search</span>
+        </button>
+
+        <button
+          className={`nav-item ${currentPage === 'livegame' ? 'active' : ''} ${isIngame && currentPage !== 'livegame' ? 'ingame' : ''}`}
+          onClick={() => onPageChange('livegame')}
+        >
+          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+            <path d="M8.5 8.5a5 5 0 0 0 0 7"/>
+            <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+            <path d="M5 5a10 10 0 0 0 0 14"/>
+            <path d="M19 5a10 10 0 0 1 0 14"/>
+          </svg>
+          <span>Live Game</span>
         </button>
 
         <button

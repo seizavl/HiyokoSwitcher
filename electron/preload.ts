@@ -66,4 +66,8 @@ contextBridge.exposeInMainWorld('electron', {
   shop: {
     getStorefront: (accountId: string) => ipcRenderer.invoke('shop:getStorefront', accountId),
   },
+  livegame: {
+    getState: () => ipcRenderer.invoke('livegame:getState'),
+    getMatchData: (force?: boolean) => ipcRenderer.invoke('livegame:getMatchData', force),
+  },
 });

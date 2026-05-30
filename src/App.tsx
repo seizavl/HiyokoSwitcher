@@ -7,9 +7,10 @@ import Account from './pages/Account/Account';
 import Setting from './pages/Setting/Setting';
 import Rank from './pages/Rank/Rank';
 import Search from './pages/Search/Search';
+import LiveGame from './pages/LiveGame/LiveGame';
 import SplashScreen from './components/SplashScreen';
 
-type Page = 'account' | 'setting' | 'rank' | 'search';
+type Page = 'account' | 'setting' | 'rank' | 'search' | 'livegame';
 export type PythonStatus = 'starting' | 'ready' | 'error';
 
 export interface ActiveAccount {
@@ -29,6 +30,8 @@ function App(): JSX.Element {
   const [animationKey, setAnimationKey] = useState(0);
   const [activeAccount, setActiveAccount] = useState<ActiveAccount | null>(null);
   const [pythonStatus, setPythonStatus] = useState<PythonStatus>('starting');
+  const [liveGameSearch, setLiveGameSearch] = useState<{ name: string; tag: string } | null>(null);
+  const [isIngame, setIsIngame] = useState(false);
 
   const loadActiveAccount = async () => {
     try {
@@ -59,6 +62,18 @@ function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    const poll = async () => {
+      try {
+        const state = await window.electron.livegame.getState();
+        setIsIngame(state === 'ingame' || state === 'pregame');
+      } catch {}
+    };
+    poll();
+    const id = setInterval(poll, 8000);
+    return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (currentPage === 'account') {
       loadActiveAccount();
     }
@@ -86,7 +101,9 @@ function App(): JSX.Element {
       case 'rank':
         return <Rank />;
       case 'search':
-        return <Search />;
+        return <Search autoSearch={liveGameSearch} onAutoSearchDone={() => setLiveGameSearch(null)} />;
+      case 'livegame':
+        return <LiveGame onPlayerClick={(name, tag) => { setLiveGameSearch({ name, tag }); handlePageChange('search'); }} />;
       default:
         return <Account onActiveChange={loadActiveAccount} />;
     }
@@ -98,7 +115,7 @@ function App(): JSX.Element {
       <div className="app">
         <TitleBar />
         <div className="app-container">
-          <Sidebar currentPage={currentPage} onPageChange={handlePageChange} activeAccount={activeAccount} />
+          <Sidebar currentPage={currentPage} onPageChange={handlePageChange} activeAccount={activeAccount} isIngame={isIngame} />
           <main className="main-content" key={animationKey}>
             {renderPage()}
           </main>

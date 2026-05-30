@@ -143,6 +143,21 @@
   box-shadow: none;
 }
 
+.nav-item.ingame {
+  color: #71767b;
+}
+
+.nav-item.ingame .nav-icon {
+  color: #ff4655;
+  filter: drop-shadow(0 0 4px rgba(255, 70, 85, 0.6));
+  animation: ingame-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ingame-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
 
 
 .nav-icon {
