@@ -22,6 +22,40 @@ function decrypt(data: string): string {
   return decrypted.toString('utf8');
 }
 
+const MIN_LOGIN_WAIT_SECONDS = 8;
+const DEFAULT_LOGIN_CLICK_POSITIONS = {
+  stayButtonX: 110,
+  stayButtonY: 430,
+  loginButtonX: 200,
+  loginButtonY: 700,
+};
+
+interface LoginClickPositions {
+  stayButtonX: number;
+  stayButtonY: number;
+  loginButtonX: number;
+  loginButtonY: number;
+}
+
+const toInteger = (value: unknown, fallback: number): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : fallback;
+};
+
+const getLoginLaunchSecond = (settings: any): number => {
+  return Math.max(toInteger(settings?.launchSecond, MIN_LOGIN_WAIT_SECONDS), MIN_LOGIN_WAIT_SECONDS);
+};
+
+const getLoginClickPositions = (settings: any): LoginClickPositions => {
+  const positions = settings?.loginClickPositions || {};
+  return {
+    stayButtonX: toInteger(positions.stayButtonX, DEFAULT_LOGIN_CLICK_POSITIONS.stayButtonX),
+    stayButtonY: toInteger(positions.stayButtonY, DEFAULT_LOGIN_CLICK_POSITIONS.stayButtonY),
+    loginButtonX: toInteger(positions.loginButtonX, DEFAULT_LOGIN_CLICK_POSITIONS.loginButtonX),
+    loginButtonY: toInteger(positions.loginButtonY, DEFAULT_LOGIN_CLICK_POSITIONS.loginButtonY),
+  };
+};
+
 // ============================
 // Riot Cookie YAML helpers
 // ============================
@@ -650,13 +684,18 @@ app.whenReady().then(() => {
 
     const riotId = decrypt(account.encryptedRiotId);
     const password = decrypt(account.encryptedPassword);
+    const clickPositions = getLoginClickPositions(settings);
 
     const params = new URLSearchParams({
       account_id: riotId,
       password,
       riot_client_path: settings.riotClientPath,
-      launch_second: String(settings.launchSecond ?? 5),
+      launch_second: String(getLoginLaunchSecond(settings)),
       extra_wait: 'false',
+      stay_button_x: String(clickPositions.stayButtonX),
+      stay_button_y: String(clickPositions.stayButtonY),
+      login_button_x: String(clickPositions.loginButtonX),
+      login_button_y: String(clickPositions.loginButtonY),
     });
 
     const result = await new Promise<any>((resolve, reject) => {
@@ -686,12 +725,15 @@ app.whenReady().then(() => {
 
     const riotId = decrypt(account.encryptedRiotId);
     const password = decrypt(account.encryptedPassword);
+    const clickPositions = getLoginClickPositions(settings);
 
     const params = new URLSearchParams({
       account_id: riotId,
       password,
       riot_client_path: settings.riotClientPath,
-      launch_second: String(settings.launchSecond ?? 5),
+      launch_second: String(getLoginLaunchSecond(settings)),
+      login_button_x: String(clickPositions.loginButtonX),
+      login_button_y: String(clickPositions.loginButtonY),
     });
 
     const result = await new Promise<any>((resolve, reject) => {
@@ -1085,7 +1127,7 @@ app.whenReady().then(() => {
           accountId,
           password,
           riotClientPath,
-          String(settings.launchSecond ?? 5),
+          String(getLoginLaunchSecond(settings)),
           'false',
         ], {
           detached: true,

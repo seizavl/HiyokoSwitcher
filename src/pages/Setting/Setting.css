@@ -159,14 +159,63 @@
   outline: none;
 }
 
+.form-input-small[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.form-input-small[type='number']::-webkit-outer-spin-button,
+.form-input-small[type='number']::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 .form-input-small:focus {
   background: #111213;
   border-color: #1d9bf0;
 }
 
+.delay-input {
+  width: 84px;
+}
+
 .unit-label {
   font-size: 13px;
   color: #e7e9ea;
+}
+
+.position-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  background: #08090a;
+  border: 1px solid #202427;
+  border-radius: 8px;
+}
+
+.position-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 8px;
+}
+
+.position-label {
+  font-size: 11px;
+  line-height: 1;
+  color: #cfd3d6;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.coordinate-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border-radius: 7px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .checkbox-group {

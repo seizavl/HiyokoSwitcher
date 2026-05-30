@@ -13,6 +13,28 @@ from pynput.keyboard import Key, Controller
 
 keyboard = Controller()
 
+MIN_LOGIN_WAIT_SECONDS = 8
+KEY_STROKE_DELAY_SECONDS = 0.05
+DEFAULT_STAY_BUTTON_X = 110
+DEFAULT_STAY_BUTTON_Y = 430
+DEFAULT_LOGIN_BUTTON_X = 200
+DEFAULT_LOGIN_BUTTON_Y = 700
+
+
+def clamp_login_wait(seconds):
+    try:
+        parsed = int(seconds)
+    except (TypeError, ValueError):
+        parsed = MIN_LOGIN_WAIT_SECONDS
+    return max(parsed, MIN_LOGIN_WAIT_SECONDS)
+
+
+def type_text_key_by_key(text):
+    for char in str(text):
+        keyboard.type(char)
+        time.sleep(KEY_STROKE_DELAY_SECONDS)
+
+
 def paste(text):
     pyperclip.copy(text)
     time.sleep(0.15)
@@ -36,7 +58,7 @@ class MacroRequest(BaseModel):
     account_id: str
     password: str
     riot_client_path: str
-    launch_second: int = 5
+    launch_second: int = MIN_LOGIN_WAIT_SECONDS
     extra_wait: bool = False
 
 
@@ -80,7 +102,18 @@ def move_mouse_task():
     # 元の位置に戻る
     pyautogui.moveTo(start_x, start_y, duration=1.0)
 
-def riot_login_task(account_id: str, password: str, riot_client_path: str, launch_second: int = 5, extra_wait: bool = False, skip_stay: bool = False):
+def riot_login_task(
+    account_id: str,
+    password: str,
+    riot_client_path: str,
+    launch_second: int = MIN_LOGIN_WAIT_SECONDS,
+    extra_wait: bool = False,
+    skip_stay: bool = False,
+    stay_button_x: int = DEFAULT_STAY_BUTTON_X,
+    stay_button_y: int = DEFAULT_STAY_BUTTON_Y,
+    login_button_x: int = DEFAULT_LOGIN_BUTTON_X,
+    login_button_y: int = DEFAULT_LOGIN_BUTTON_Y,
+):
     """Riot Client にログインする処理"""
     # `cmd /c start` 経由で起動して Riot Client を Python のプロセスツリーから切り離す。
     # こうしないと Switcher 終了時の `taskkill /F /T`（backend.exe の終了処理）に
@@ -102,7 +135,7 @@ def riot_login_task(account_id: str, password: str, riot_client_path: str, launc
         if process_name in output:
             riot_client_windows = gw.getWindowsWithTitle('Riot Client')
             if riot_client_windows:
-                wait = launch_second + (4 if extra_wait else 0)
+                wait = clamp_login_wait(launch_second) + (4 if extra_wait else 0)
                 time.sleep(wait)
 
                 riot_client_windows = gw.getWindowsWithTitle('Riot Client')
@@ -119,21 +152,21 @@ def riot_login_task(account_id: str, password: str, riot_client_path: str, launc
 
                 time.sleep(0.5)
 
-                keyboard.type(account_id)
+                type_text_key_by_key(account_id)
 
                 keyboard.press(Key.tab)
                 keyboard.release(Key.tab)
                 time.sleep(0.3)
 
-                keyboard.type(password)
+                type_text_key_by_key(password)
 
                 if not skip_stay:
-                    staybutton_x = riot_client_window.left + 110
-                    staybutton_y = riot_client_window.top + 430
+                    staybutton_x = riot_client_window.left + stay_button_x
+                    staybutton_y = riot_client_window.top + stay_button_y
                     pyautogui.click(staybutton_x, staybutton_y)
 
-                button_x = riot_client_window.left + 200
-                button_y = riot_client_window.top + 700
+                button_x = riot_client_window.left + login_button_x
+                button_y = riot_client_window.top + login_button_y
                 pyautogui.click(button_x, button_y)
                 break
 
@@ -146,18 +179,53 @@ def riot_login_task(account_id: str, password: str, riot_client_path: str, launc
 
 
 @app.get("/api/riot/login")
-def riot_login(account_id: str, password: str, riot_client_path: str, launch_second: int = 5, extra_wait: bool = False):
+def riot_login(
+    account_id: str,
+    password: str,
+    riot_client_path: str,
+    launch_second: int = MIN_LOGIN_WAIT_SECONDS,
+    extra_wait: bool = False,
+    stay_button_x: int = DEFAULT_STAY_BUTTON_X,
+    stay_button_y: int = DEFAULT_STAY_BUTTON_Y,
+    login_button_x: int = DEFAULT_LOGIN_BUTTON_X,
+    login_button_y: int = DEFAULT_LOGIN_BUTTON_Y,
+):
     try:
-        riot_login_task(account_id, password, riot_client_path, launch_second, extra_wait)
+        riot_login_task(
+            account_id,
+            password,
+            riot_client_path,
+            launch_second,
+            extra_wait,
+            stay_button_x=stay_button_x,
+            stay_button_y=stay_button_y,
+            login_button_x=login_button_x,
+            login_button_y=login_button_y,
+        )
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
 
 
 @app.get("/api/riot/macro-login")
-def riot_macro_login(account_id: str, password: str, riot_client_path: str, launch_second: int = 5):
+def riot_macro_login(
+    account_id: str,
+    password: str,
+    riot_client_path: str,
+    launch_second: int = MIN_LOGIN_WAIT_SECONDS,
+    login_button_x: int = DEFAULT_LOGIN_BUTTON_X,
+    login_button_y: int = DEFAULT_LOGIN_BUTTON_Y,
+):
     try:
-        riot_login_task(account_id, password, riot_client_path, launch_second, skip_stay=True)
+        riot_login_task(
+            account_id,
+            password,
+            riot_client_path,
+            launch_second,
+            skip_stay=True,
+            login_button_x=login_button_x,
+            login_button_y=login_button_y,
+        )
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "error": str(e)}
@@ -179,7 +247,7 @@ def execute_macro(req: MacroRequest):
                 req.account_id,
                 req.password,
                 req.riot_client_path,
-                str(req.launch_second),
+                str(clamp_login_wait(req.launch_second)),
                 str(req.extra_wait),
             ],
             creationflags=subprocess.CREATE_NEW_CONSOLE,

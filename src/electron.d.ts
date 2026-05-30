@@ -13,6 +13,24 @@ export interface Account {
   memo?: string;
 }
 
+export interface LoginClickPositions {
+  stayButtonX?: number;
+  stayButtonY?: number;
+  loginButtonX?: number;
+  loginButtonY?: number;
+}
+
+export interface AppSettings {
+  apiKey?: string;
+  riotClientPath?: string;
+  launchSecond?: number;
+  loginClickPositions?: LoginClickPositions;
+  autoCheckValorant?: boolean;
+  autoCheckApp?: boolean;
+  showPythonConsole?: boolean;
+  activeAccountId?: string;
+}
+
 interface ElectronAPI {
   ipcRenderer: {
     invoke: (channel: string, ...args: any[]) => Promise<any>;
@@ -55,8 +73,8 @@ interface ElectronAPI {
     killGames: () => Promise<boolean>;
   };
   settings: {
-    get: () => Promise<{ apiKey?: string; riotClientPath?: string; autoCheckValorant?: boolean; autoCheckApp?: boolean; showPythonConsole?: boolean; activeAccountId?: string }>;
-    save: (settings: { apiKey?: string; riotClientPath?: string; autoCheckValorant?: boolean; autoCheckApp?: boolean; showPythonConsole?: boolean; activeAccountId?: string }) => Promise<void>;
+    get: () => Promise<AppSettings>;
+    save: (settings: AppSettings) => Promise<void>;
   };
   macro: {
     execute: (data: { x: number; y: number; text: string }) => Promise<{ success: boolean }>;
