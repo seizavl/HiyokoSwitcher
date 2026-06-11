@@ -27,6 +27,7 @@ export interface AppSettings {
   loginClickPositions?: LoginClickPositions;
   autoCheckValorant?: boolean;
   autoCheckApp?: boolean;
+  liveGameTab?: boolean;
   activeAccountId?: string;
 }
 

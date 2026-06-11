@@ -561,6 +561,15 @@ app.whenReady().then(() => {
   const accountsFilePath = path.join(dataDir, 'accounts.json');
   const settingsFilePath = path.join(dataDir, 'settings.json');
 
+  // 初期状態で settings.json に liveGameTab キーを false で用意しておく
+  // （ファイルを開けばキーが見つかり、true に書き換えるだけでタブを表示できる）
+  {
+    const initialSettings = loadSettings(settingsFilePath);
+    if (initialSettings.liveGameTab === undefined) {
+      saveSettings(settingsFilePath, { ...initialSettings, liveGameTab: false });
+    }
+  }
+
   // ウィンドウ操作のIPCハンドラー
   ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();

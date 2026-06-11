@@ -32,10 +32,12 @@ function App(): JSX.Element {
   const [pythonStatus, setPythonStatus] = useState<PythonStatus>('starting');
   const [liveGameSearch, setLiveGameSearch] = useState<{ name: string; tag: string } | null>(null);
   const [isIngame, setIsIngame] = useState(false);
+  const [showLiveGameTab, setShowLiveGameTab] = useState(false);
 
   const loadActiveAccount = async () => {
     try {
       const settings = await window.electron.settings.get();
+      setShowLiveGameTab(settings.liveGameTab === true);
       if (settings.activeAccountId) {
         const accounts = await window.electron.accounts.getAll();
         const account = accounts.find((a: any) => a.id === settings.activeAccountId);
@@ -62,6 +64,11 @@ function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
+    // タブ非表示時はインゲーム表示が不要なのでポーリングしない
+    if (!showLiveGameTab) {
+      setIsIngame(false);
+      return;
+    }
     const poll = async () => {
       try {
         const state = await window.electron.livegame.getState();
@@ -71,7 +78,14 @@ function App(): JSX.Element {
     poll();
     const id = setInterval(poll, 8000);
     return () => clearInterval(id);
-  }, []);
+  }, [showLiveGameTab]);
+
+  // タブが非表示になったときに LiveGame ページに居たら Account に戻す
+  useEffect(() => {
+    if (!showLiveGameTab && currentPage === 'livegame') {
+      setCurrentPage('account');
+    }
+  }, [showLiveGameTab, currentPage]);
 
   useEffect(() => {
     if (currentPage === 'account') {
@@ -115,7 +129,7 @@ function App(): JSX.Element {
       <div className="app">
         <TitleBar />
         <div className="app-container">
-          <Sidebar currentPage={currentPage} onPageChange={handlePageChange} activeAccount={activeAccount} isIngame={isIngame} />
+          <Sidebar currentPage={currentPage} onPageChange={handlePageChange} activeAccount={activeAccount} isIngame={isIngame} showLiveGame={showLiveGameTab} />
           <main className="main-content" key={animationKey}>
             {renderPage()}
           </main>

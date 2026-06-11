@@ -10,9 +10,10 @@ interface SidebarProps {
   onPageChange: (page: Page) => void;
   activeAccount: ActiveAccount | null;
   isIngame?: boolean;
+  showLiveGame?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAccount, isIngame }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAccount, isIngame, showLiveGame }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [displayAccount, setDisplayAccount] = useState<ActiveAccount | null>(activeAccount);
   const [animClass, setAnimClass] = useState('');
@@ -86,19 +87,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPage, onPageChange, activeAcco
           <span>Search</span>
         </button>
 
-        <button
-          className={`nav-item ${currentPage === 'livegame' ? 'active' : ''} ${isIngame && currentPage !== 'livegame' ? 'ingame' : ''}`}
-          onClick={() => onPageChange('livegame')}
-        >
-          <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
-            <path d="M8.5 8.5a5 5 0 0 0 0 7"/>
-            <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
-            <path d="M5 5a10 10 0 0 0 0 14"/>
-            <path d="M19 5a10 10 0 0 1 0 14"/>
-          </svg>
-          <span>Live Game</span>
-        </button>
+        {showLiveGame && (
+          <button
+            className={`nav-item ${currentPage === 'livegame' ? 'active' : ''} ${isIngame && currentPage !== 'livegame' ? 'ingame' : ''}`}
+            onClick={() => onPageChange('livegame')}
+          >
+            <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+              <path d="M8.5 8.5a5 5 0 0 0 0 7"/>
+              <path d="M15.5 8.5a5 5 0 0 1 0 7"/>
+              <path d="M5 5a10 10 0 0 0 0 14"/>
+              <path d="M19 5a10 10 0 0 1 0 14"/>
+            </svg>
+            <span>Live Game</span>
+          </button>
+        )}
 
         <button
           className={`nav-item ${currentPage === 'setting' ? 'active' : ''}`}
