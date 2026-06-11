@@ -1,13 +1,16 @@
-<p align="center">
-    <a href="s">
-        <img width="200" height="200" alt="hiyokologo" src="https://github.com/user-attachments/assets/ec1f093c-3525-418d-b743-2ea70c9ec568" />
-    </a>
-<h5 align="center">HiyokoSwitcher<br><br>
-<a href="https://github.com/seizavl/HiyokoSwitcher/releases" >
-    <img src="https://img.shields.io/github/downloads/seizavl/HiyokoSwitcher/total?labelColor=1E1E1E&color=466bff&style=for-the-badge" alt="Download"/ >
+<div align="center">
+
+<a href="https://github.com/seizavl/HiyokoSwitcher">
+  <img width="200" height="200" alt="hiyokologo" src="https://github.com/user-attachments/assets/ec1f093c-3525-418d-b743-2ea70c9ec568" />
 </a>
-</h5>
-</p>
+
+<h5>HiyokoSwitcher</h5>
+
+<a href="https://github.com/seizavl/HiyokoSwitcher/releases">
+  <img src="https://img.shields.io/github/downloads/seizavl/HiyokoSwitcher/total?label=DOWNLOADS&labelColor=1E1E1E&color=466bff&style=for-the-badge" alt="Downloads" />
+</a>
+
+</div>
 
 ## 機能
 
