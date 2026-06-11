@@ -47,6 +47,15 @@ const AddAccount: React.FC = () => {
         if (killed) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        // アクティブだったアカウントの最新セッションを保存してから削除する
+        const prevSettings = await window.electron.settings.get();
+        if (prevSettings.activeAccountId) {
+          try {
+            await window.electron.riot.saveYaml(prevSettings.activeAccountId);
+          } catch (saveError) {
+            console.error('Failed to save previous account yaml:', saveError);
+          }
+        }
         await window.electron.riot.deleteYaml();
         await new Promise(resolve => setTimeout(resolve, 1000));
 

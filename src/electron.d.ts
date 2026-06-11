@@ -27,7 +27,6 @@ export interface AppSettings {
   loginClickPositions?: LoginClickPositions;
   autoCheckValorant?: boolean;
   autoCheckApp?: boolean;
-  showPythonConsole?: boolean;
   activeAccountId?: string;
 }
 
@@ -75,9 +74,6 @@ interface ElectronAPI {
   settings: {
     get: () => Promise<AppSettings>;
     save: (settings: AppSettings) => Promise<void>;
-  };
-  macro: {
-    execute: (data: { x: number; y: number; text: string }) => Promise<{ success: boolean }>;
   };
   python: {
     test: () => Promise<{ label: string; status: 'ok' | 'error'; detail: string }[]>;

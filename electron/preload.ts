@@ -52,9 +52,6 @@ contextBridge.exposeInMainWorld('electron', {
     launchLoL: () => ipcRenderer.invoke('riot:launchLoL'),
     killGames: () => ipcRenderer.invoke('riot:killGames'),
   },
-  macro: {
-    execute: (data: { x: number; y: number; text: string }) => ipcRenderer.invoke('macro:execute', data),
-  },
   python: {
     test: () => ipcRenderer.invoke('python:test'),
     onStatus: (listener: (status: 'starting' | 'ready' | 'error') => void) => {

@@ -108,6 +108,17 @@ const Rank: React.FC = () => {
     let completed = 0;
     const total = selected.length;
 
+    // セッション更新で live YAML を消す前に、アクティブだったアカウントの
+    // 最新セッションを保存コピーへ反映しておく（最後の restoreYaml で戻す）
+    if (prevActiveId && (updateMode === 'session' || updateMode === 'both')) {
+      try {
+        await window.electron.riot.killClient();
+        await window.electron.riot.saveYaml(prevActiveId);
+      } catch (e) {
+        console.error('Failed to save active account YAML:', e);
+      }
+    }
+
     for (let i = 0; i < selected.length; i++) {
       const account = selected[i];
       // Henrik API のレートリミット回避のため、2 件目以降は短いディレイを挟む

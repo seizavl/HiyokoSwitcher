@@ -1,10 +1,11 @@
 from fastapi import FastAPI, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from pathlib import Path
 import uvicorn
 import subprocess
 import sys
+import os
+import threading
 import pyautogui
 import time
 import pyperclip
@@ -52,14 +53,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-class MacroRequest(BaseModel):
-    account_id: str
-    password: str
-    riot_client_path: str
-    launch_second: int = MIN_LOGIN_WAIT_SECONDS
-    extra_wait: bool = False
 
 
 @app.get("/api/health")
@@ -237,26 +230,21 @@ def test_move_mouse(background_tasks: BackgroundTasks):
     return {"status": "started"}
 
 
-@app.post("/api/macro/execute")
-def execute_macro(req: MacroRequest):
-    try:
-        script = Path(__file__).parent / "macro.py"
-        subprocess.Popen(
-            [
-                sys.executable, str(script),
-                req.account_id,
-                req.password,
-                req.riot_client_path,
-                str(clamp_login_wait(req.launch_second)),
-                str(req.extra_wait),
-            ],
-            creationflags=subprocess.CREATE_NEW_CONSOLE,
-        )
-        return {"success": True}
+def _watch_parent_stdin():
+    """Electron 親プロセスの死活監視。
 
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    Electron は stdio=pipe でこのプロセスを起動するため、親が終了すると
+    （クラッシュや強制終了を含め）stdin が EOF になる。それを検知したら
+    自分も終了し、孤児プロセスとして残らないようにする。
+    """
+    try:
+        sys.stdin.buffer.read()  # 親プロセスが終了して EOF になるまでブロック
+    except Exception:
+        return  # stdin が使えない環境では監視しない
+    os._exit(0)
 
 
 if __name__ == "__main__":
+    if "--watch-stdin" in sys.argv and sys.stdin is not None:
+        threading.Thread(target=_watch_parent_stdin, daemon=True).start()
     uvicorn.run(app, host="127.0.0.1", port=8000)

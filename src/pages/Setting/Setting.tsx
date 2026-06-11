@@ -27,7 +27,7 @@ const numberText = (value: unknown, fallback: number, min?: number) => {
 
 const Setting: React.FC = () => {
   const { addAlert } = useAlert();
-  const [riotClientPath, setRiotClientPath] = useState('C:/Riot Games/Riot Client/RiotClientS');
+  const [riotClientPath, setRiotClientPath] = useState('C:/Riot Games/Riot Client/RiotClientServices.exe');
   const [launchSecond, setLaunchSecond] = useState(String(MIN_LOGIN_WAIT_SECONDS));
   const [loginClickPositions, setLoginClickPositions] = useState<Record<LoginClickPositionKey, string>>({
     stayButtonX: String(DEFAULT_LOGIN_CLICK_POSITIONS.stayButtonX),
@@ -38,7 +38,6 @@ const Setting: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [autoCheckValorant, setAutoCheckValorant] = useState(false);
   const [autoCheckApp, setAutoCheckApp] = useState(false);
-  const [showPythonConsole, setShowPythonConsole] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -58,7 +57,6 @@ const Setting: React.FC = () => {
       });
       if (settings.autoCheckValorant !== undefined) setAutoCheckValorant(settings.autoCheckValorant);
       if (settings.autoCheckApp !== undefined) setAutoCheckApp(settings.autoCheckApp);
-      if (settings.showPythonConsole !== undefined) setShowPythonConsole(settings.showPythonConsole);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -83,7 +81,6 @@ const Setting: React.FC = () => {
         loginClickPositions: normalizedClickPositions,
         autoCheckValorant,
         autoCheckApp,
-        showPythonConsole,
       });
       setLaunchSecond(String(normalizedLaunchSecond));
       setLoginClickPositions({
@@ -100,7 +97,7 @@ const Setting: React.FC = () => {
   };
 
   const handleReset = () => {
-    setRiotClientPath('C:/Riot Games/Riot Client/RiotClientS');
+    setRiotClientPath('C:/Riot Games/Riot Client/RiotClientServices.exe');
     setLaunchSecond(String(MIN_LOGIN_WAIT_SECONDS));
     setLoginClickPositions({
       stayButtonX: String(DEFAULT_LOGIN_CLICK_POSITIONS.stayButtonX),

@@ -195,7 +195,7 @@
   background: #111213;
   border-radius: 10px;
   border: 1px solid #2f3336;
-  transition: background 0.3s ease, border-color 0.3s ease, opacity 0.3s ease;
+  transition: background 0.3s ease, border-color 0.3s ease, opacity 0.3s ease, filter 0.3s ease;
   position: relative;
   cursor: pointer;
 }
@@ -225,7 +225,56 @@
 
 .account-item.disabled {
   pointer-events: none;
-  opacity: 0.5;
+}
+
+/* 切り替え中: 選択先以外を暗く沈めて操作不可を視覚的に示す */
+.account-item.switching-dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.7) brightness(0.6);
+}
+
+/* 切り替え中: 切り替え先はボーダーをパルス発光させて強調 */
+.account-item.switching-target {
+  animation: switchingGlow 1.4s ease-in-out infinite;
+}
+
+@keyframes switchingGlow {
+  0%, 100% {
+    border-color: #3f4448;
+    box-shadow: 0 0 0 0 rgba(231, 233, 234, 0);
+  }
+  50% {
+    border-color: #9aa0a6;
+    box-shadow: 0 0 14px 1px rgba(231, 233, 234, 0.18);
+  }
+}
+
+/* 切り替え先の右端に出す「切り替え中」バッジ */
+.switching-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e7e9ea;
+  background: rgba(231, 233, 234, 0.08);
+  border: 1px solid #3f4448;
+  padding: 6px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  animation: badgePulse 1.4s ease-in-out infinite;
+}
+
+.switching-badge-spinner {
+  width: 12px;
+  height: 12px;
+  border-color: rgba(231, 233, 234, 0.25);
+  border-top-color: #e7e9ea;
+}
+
+@keyframes badgePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .account-avatar {

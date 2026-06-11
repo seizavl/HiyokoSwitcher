@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, globalShortcut, shell, clipboard } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell, clipboard } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import https from 'https';
@@ -143,6 +143,7 @@ const getProjectRoot = (): string => {
   return __dirname;
 };
 let pythonProcess: ChildProcess | null = null;
+let isQuitting = false;
 
 const waitForPortFree = (port: number, maxWaitMs: number = 5000): Promise<void> => {
   return new Promise((resolve) => {
@@ -167,7 +168,7 @@ const waitForPortFree = (port: number, maxWaitMs: number = 5000): Promise<void> 
   });
 };
 
-const startPythonBackend = async (showConsole: boolean = false): Promise<void> => {
+const startPythonBackend = async (): Promise<void> => {
   const projectRoot = getProjectRoot();
   const baseDir = app.isPackaged ? path.dirname(app.getPath('exe')) : projectRoot;
 
@@ -182,7 +183,8 @@ const startPythonBackend = async (showConsole: boolean = false): Promise<void> =
 
   if (fs.existsSync(bundledExe)) {
     cmd = bundledExe;
-    args = [];
+    // --watch-stdin: stdin パイプの EOF（= Electron 終了）を検知して自己終了させる
+    args = ['--watch-stdin'];
     console.log(`[Python] Using bundled exe: ${bundledExe}`);
   } else {
     // フォールバック: システム Python + スクリプト
@@ -192,18 +194,17 @@ const startPythonBackend = async (showConsole: boolean = false): Promise<void> =
       return;
     }
     cmd = 'python';
-    args = [scriptPath];
+    args = [scriptPath, '--watch-stdin'];
     console.log(`[Python] cmd=${cmd}, script=${scriptPath}`);
   }
 
   // 前のインスタンスの Python がポート 8000 を解放するまで待つ
   await waitForPortFree(8000, 5000);
 
-  const spawnOptions = showConsole
-    ? { stdio: 'ignore' as const, creationFlags: 0x00000010 /* CREATE_NEW_CONSOLE */ }
-    : { stdio: 'pipe' as const };
+  // 待機中にアプリの終了処理が始まっていたら起動しない（孤児プロセス防止）
+  if (isQuitting) return;
 
-  pythonProcess = spawn(cmd, args, spawnOptions);
+  pythonProcess = spawn(cmd, args, { stdio: 'pipe' });
 
   pythonProcess.stdout?.on('data', (data) => {
     console.log(`[Python] ${data}`);
@@ -560,19 +561,6 @@ app.whenReady().then(() => {
   const accountsFilePath = path.join(dataDir, 'accounts.json');
   const settingsFilePath = path.join(dataDir, 'settings.json');
 
-  // グローバルショートカットを登録（F12キーで開発者ツールを開く）
-  globalShortcut.register('F12', () => {
-    if (mainWindow) {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
-
-  globalShortcut.register('CommandOrControl+Shift+I', () => {
-    if (mainWindow) {
-      mainWindow.webContents.toggleDevTools();
-    }
-  });
-
   // ウィンドウ操作のIPCハンドラー
   ipcMain.on('window-minimize', () => {
     if (mainWindow) mainWindow.minimize();
@@ -622,7 +610,7 @@ app.whenReady().then(() => {
         throw new Error('API key not set');
       }
 
-      const url = `https://api.henrikdev.xyz/valorant/v1/account/${name}/${tag}`;
+      const url = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
       const accountData = await fetchValorantAPI(url, apiKey);
 
       if (accountData.status !== 200) {
@@ -646,7 +634,7 @@ app.whenReady().then(() => {
         throw new Error('API key not set');
       }
 
-      const url = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${name}/${tag}`;
+      const url = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(name)}/${encodeURIComponent(tag)}`;
       const rankData = await fetchValorantAPI(url, apiKey);
 
       if (rankData.status !== 200) {
@@ -689,7 +677,7 @@ app.whenReady().then(() => {
       }
 
       // アカウント情報取得
-      const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${accountInput.accountname}/${accountInput.accounttag}`;
+      const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
       const accountData = await fetchValorantAPI(accountUrl, apiKey);
 
       if (accountData.status !== 200) {
@@ -697,7 +685,7 @@ app.whenReady().then(() => {
       }
 
       // ランク情報取得
-      const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${accountInput.accountname}/${accountInput.accounttag}`;
+      const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
       const rankData = await fetchValorantAPI(rankUrl, apiKey);
 
       console.log('Rank API Response:', JSON.stringify(rankData, null, 2));
@@ -824,17 +812,46 @@ app.whenReady().then(() => {
     );
   };
 
-  // RiotClientServices.exe が動いていれば終了する
-  ipcMain.handle('riot:killClient', async () => {
+  // RiotClientServices.exe が動いているか確認
+  const isRiotClientRunning = (): boolean => {
     try {
       const { execSync } = require('child_process');
-      // プロセスが存在するか確認
       const tasklist = execSync('tasklist /FI "IMAGENAME eq RiotClientServices.exe" /NH', { encoding: 'utf-8' });
-      if (tasklist.includes('RiotClientServices.exe')) {
-        execSync('taskkill /F /IM RiotClientServices.exe', { encoding: 'utf-8' });
-        return true;
-      }
+      return tasklist.includes('RiotClientServices.exe');
+    } catch {
       return false;
+    }
+  };
+
+  // RiotClientServices.exe が動いていれば終了する。
+  // Riot Client は終了時に最新セッションを RiotGamesPrivateSettings.yaml へ
+  // 書き出すため、まず通常終了を試みて書き出しの猶予を与え、
+  // 終了しない場合のみ強制終了にフォールバックする。
+  ipcMain.handle('riot:killClient', async () => {
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    try {
+      const { execSync } = require('child_process');
+      if (!isRiotClientRunning()) return false;
+
+      try {
+        execSync('taskkill /IM RiotClientServices.exe', { stdio: 'ignore' });
+      } catch {}
+      for (let i = 0; i < 10 && isRiotClientRunning(); i++) {
+        await sleep(500);
+      }
+
+      if (isRiotClientRunning()) {
+        try {
+          execSync('taskkill /F /IM RiotClientServices.exe', { stdio: 'ignore' });
+        } catch {}
+        for (let i = 0; i < 6 && isRiotClientRunning(); i++) {
+          await sleep(500);
+        }
+      }
+
+      // 終了直後の YAML 書き出しが完了するまで少しだけ待つ
+      await sleep(500);
+      return true;
     } catch (error: any) {
       console.error('Failed to kill RiotClientServices:', error);
       return false;
@@ -1172,69 +1189,6 @@ app.whenReady().then(() => {
     return results;
   });
 
-  // マクロ実行（macro.py を直接 spawn）
-  ipcMain.handle('macro:execute', async (_event, data: { x: number; y: number; text: string }) => {
-    try {
-      const settings = loadSettings(settingsFilePath);
-      const riotClientPath = settings.riotClientPath;
-
-      if (!riotClientPath) {
-        throw new Error('Riot Clientのパスが設定されていません');
-      }
-
-      const [accountId, password] = data.text.split('\t');
-
-      const macroScript = isDev
-        ? path.join(getProjectRoot(), 'backend', 'macro.py')
-        : path.join(path.dirname(app.getPath('exe')), 'backend/macro.py');
-
-      const response = await new Promise<any>((resolve) => {
-        const proc = spawn('python', [
-          macroScript,
-          accountId,
-          password,
-          riotClientPath,
-          String(getLoginLaunchSecond(settings)),
-          'false',
-        ], {
-          detached: true,
-          stdio: 'pipe',
-        });
-        proc.stdout?.on('data', (d: Buffer) => console.log('[macro]', d.toString()));
-        proc.stderr?.on('data', (d: Buffer) => console.error('[macro err]', d.toString()));
-        proc.on('error', (e: Error) => console.error('[macro spawn error]', e));
-        proc.unref();
-        resolve({ success: true });
-      });
-
-      // ウィンドウを最小化（macro.py が動く間）
-      if (mainWindow) {
-        mainWindow.minimize();
-      }
-
-      // ウィンドウを復元
-      if (mainWindow) {
-        mainWindow.restore();
-        mainWindow.focus();
-      }
-
-      if (!response.success) {
-        throw new Error(response.error || 'マクロ実行に失敗しました');
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      console.error('Failed to execute auto-login:', error);
-
-      if (mainWindow) {
-        mainWindow.restore();
-        mainWindow.focus();
-      }
-
-      throw error;
-    }
-  });
-
   // ============================
   // Shop 機能 (ストアフロント取得)
   // ============================
@@ -1436,6 +1390,9 @@ app.whenReady().then(() => {
       }
     );
     jar.handleSetCookies(step1.setCookies);
+    // サーバー側で ssid がローテーションされた可能性があるため、
+    // この時点で即座に YAML へ書き戻す（以降の処理が失敗しても新 ssid を失わない）
+    persistRiotCookies(yamlPath, jar.getCookies());
 
     // 5. GET authorize（リダイレクト → access_token 抽出）
     const authorizeUrl =
@@ -1449,6 +1406,7 @@ app.whenReady().then(() => {
       },
     });
     jar.handleSetCookies(step2.setCookies);
+    persistRiotCookies(yamlPath, jar.getCookies());
 
     const location = step2.headers.location;
     if (!location) {
@@ -1597,8 +1555,7 @@ app.whenReady().then(() => {
       );
     }
 
-    // 13. 認証で得た最新クッキーを YAML に永続化（毎回上書き、アトミック）
-    persistRiotCookies(yamlPath, jar.getCookies());
+    // クッキーの永続化は認証直後（step1/step2）に実施済み
 
     return {
       dailyOffers,
@@ -1937,20 +1894,19 @@ app.whenReady().then(() => {
     }
   });
 
-  const settings = loadSettings(settingsFilePath);
-  startPythonBackend(settings.showPythonConsole === true); // await しない: ウィンドウ表示と並行して起動
+  startPythonBackend(); // await しない: ウィンドウ表示と並行して起動
   createWindow();
 });
 
 app.on('before-quit', (): void => {
+  isQuitting = true;
   stopPythonBackend();
 });
 
 app.on('window-all-closed', (): void => {
   // Pythonバックエンドを停止
+  isQuitting = true;
   stopPythonBackend();
-  // グローバルショートカットを解除
-  globalShortcut.unregisterAll();
 
   if (process.platform !== 'darwin') {
     app.quit();

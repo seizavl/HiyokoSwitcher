@@ -274,6 +274,15 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         if (killed) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
+        // アクティブだったアカウントの最新セッションを保存してから削除する
+        const settings = await window.electron.settings.get();
+        if (settings.activeAccountId) {
+          try {
+            await window.electron.riot.saveYaml(settings.activeAccountId);
+          } catch (e) {
+            console.error('Failed to save previous account yaml:', e);
+          }
+        }
         await window.electron.riot.deleteYaml();
         await new Promise(resolve => setTimeout(resolve, 1000));
 
@@ -383,12 +392,22 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
     if (id === activeAccountId || isSwitchingRef.current) return;
     isSwitchingRef.current = true;
     setIsSwitching(true);
+    const prevActiveId = activeAccountId;
     setActiveAccountId(id);
     try {
       // RiotClientServicesが動いていれば終了して1秒待つ
       const killed = await window.electron.riot.killClient();
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      // 直前までアクティブだったアカウントの最新セッション（ローテーション済みssid）を
+      // 保存コピーに反映してから削除する。失敗しても切り替え自体は続行する。
+      if (prevActiveId) {
+        try {
+          await window.electron.riot.saveYaml(prevActiveId);
+        } catch (e) {
+          console.error('Failed to save previous account yaml:', e);
+        }
       }
       // 現在のyamlを削除
       await window.electron.riot.deleteYaml();
@@ -571,9 +590,16 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      // 2. トグル（activeAccountId）を解除
-      setActiveAccountId(null);
+      // 2. アクティブだったアカウントの最新セッションを保存してからトグルを解除
       const settings = await window.electron.settings.get();
+      if (settings.activeAccountId) {
+        try {
+          await window.electron.riot.saveYaml(settings.activeAccountId);
+        } catch (e) {
+          console.error('Failed to save previous account yaml:', e);
+        }
+      }
+      setActiveAccountId(null);
       await window.electron.settings.save({ ...settings, activeAccountId: undefined });
       // 3. YAML を削除
       await window.electron.riot.deleteYaml();
@@ -600,6 +626,15 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       const killed = await window.electron.riot.killClient();
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      // アクティブだったアカウントの最新セッションを保存してから削除する
+      const settings = await window.electron.settings.get();
+      if (settings.activeAccountId) {
+        try {
+          await window.electron.riot.saveYaml(settings.activeAccountId);
+        } catch (e) {
+          console.error('Failed to save previous account yaml:', e);
+        }
       }
       await window.electron.riot.deleteYaml();
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -928,7 +963,7 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
                     <div
                       key={account.id}
                       data-account-id={account.id}
-                      className={`account-item ${isSwitching ? 'disabled' : ''} ${reorderMode ? 'reorder-mode' : ''} ${dragState?.active && dragState.fromIdx === idx ? 'dragging' : ''} ${dragState?.active || skipAnim ? '' : isDetailOpen ? 'item-exit' : 'item-enter'}`}
+                      className={`account-item ${isSwitching ? (activeAccountId === account.id ? 'disabled switching-target' : 'disabled switching-dimmed') : ''} ${reorderMode ? 'reorder-mode' : ''} ${dragState?.active && dragState.fromIdx === idx ? 'dragging' : ''} ${dragState?.active || skipAnim ? '' : isDetailOpen ? 'item-exit' : 'item-enter'}`}
                       style={{ ...getDragStyle(idx), ...(dragState?.active || skipAnim ? {} : { animationDelay: `${isDetailOpen ? (accounts.length - 1 - idx) * 25 : 150 + idx * 30}ms` }) }}
                       onClick={() => !reorderMode && saveActiveAccount(account.id)}
                       onPointerDown={(e) => handlePointerDown(e, idx)}
@@ -963,14 +998,21 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
                           <span>{account.valorant?.rank || 'Unranked'} - Level {account.valorant?.level || 0}</span>
                         </div>
                       </div>
-                      <button
-                        className="more-button"
-                        onClick={(e) => { e.stopPropagation(); openDetail(account); }}
-                      >
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 18l6-6-6-6"/>
-                        </svg>
-                      </button>
+                      {isSwitching && activeAccountId === account.id ? (
+                        <div className="switching-badge">
+                          <span className="btn-spinner switching-badge-spinner" />
+                          切り替え中
+                        </div>
+                      ) : (
+                        <button
+                          className="more-button"
+                          onClick={(e) => { e.stopPropagation(); openDetail(account); }}
+                        >
+                          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 18l6-6-6-6"/>
+                          </svg>
+                        </button>
+                      )}
                     </div>
                   ))
                 )}
