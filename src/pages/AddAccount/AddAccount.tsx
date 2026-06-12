@@ -42,21 +42,13 @@ const AddAccount: React.FC = () => {
 
         console.log('Account added (pending confirmation):', newAccount);
 
-        // 3. Riot Clientを落としてからyamlを削除して1秒待つ
+        // 3. Riot Clientを落としてからジャンクションを新アカウントへ張り替える
         const killed = await window.electron.riot.killClient();
         if (killed) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        // アクティブだったアカウントの最新セッションを保存してから削除する
-        const prevSettings = await window.electron.settings.get();
-        if (prevSettings.activeAccountId) {
-          try {
-            await window.electron.riot.saveYaml(prevSettings.activeAccountId);
-          } catch (saveError) {
-            console.error('Failed to save previous account yaml:', saveError);
-          }
-        }
-        await window.electron.riot.deleteYaml();
+        await window.electron.riot.switchData(newAccount.id);
+        await window.electron.riot.clearSession(newAccount.id);
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // 4. Riot Clientを起動してログイン
@@ -99,13 +91,12 @@ const AddAccount: React.FC = () => {
 
   const saveLoginData = async (accountId: string) => {
     try {
-      // Riot Clientのタスクを落としてShutdownData.yamlを生成させる
+      // Riot Clientを終了させ、最新セッションをアカウントフォルダに書き出させる
+      // （ジャンクション経由なので保存コピーは不要）
       const killed = await window.electron.riot.killClient();
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
-      // ShutdownData.yaml生成後にyamlを保存
-      await window.electron.riot.saveYaml(accountId);
       // トグルをそのアカウントに設定
       const settings = await window.electron.settings.get();
       await window.electron.settings.save({ ...settings, activeAccountId: accountId });
@@ -118,10 +109,9 @@ const AddAccount: React.FC = () => {
 
   const restorePreviousYaml = async () => {
     try {
+      // ジャンクションを元のアクティブアカウント（未選択なら _unselected）へ戻す
       const settings = await window.electron.settings.get();
-      if (settings.activeAccountId) {
-        await window.electron.riot.restoreYaml(settings.activeAccountId);
-      }
+      await window.electron.riot.switchData(settings.activeAccountId ?? null);
     } catch (error: any) {
       console.error('Failed to restore yaml:', error);
     }
@@ -144,6 +134,8 @@ const AddAccount: React.FC = () => {
         }
         break;
       case 'failed':
+        // フォルダ削除・ジャンクション操作の前にクライアントを終了する
+        await window.electron.riot.killClient();
         if (pendingAccountId) {
           await deleteFailedAccount(pendingAccountId);
         }
@@ -164,6 +156,8 @@ const AddAccount: React.FC = () => {
         await saveLoginData(pendingAccountId);
       }
     } else if (value === 'failed') {
+      // フォルダ削除・ジャンクション操作の前にクライアントを終了する
+      await window.electron.riot.killClient();
       if (pendingAccountId) {
         await deleteFailedAccount(pendingAccountId);
       }

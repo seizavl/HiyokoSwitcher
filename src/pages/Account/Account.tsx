@@ -274,16 +274,9 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         if (killed) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
-        // アクティブだったアカウントの最新セッションを保存してから削除する
-        const settings = await window.electron.settings.get();
-        if (settings.activeAccountId) {
-          try {
-            await window.electron.riot.saveYaml(settings.activeAccountId);
-          } catch (e) {
-            console.error('Failed to save previous account yaml:', e);
-          }
-        }
-        await window.electron.riot.deleteYaml();
+        // Data ジャンクションを新アカウントのフォルダへ張り替えてログイン画面を出す
+        await window.electron.riot.switchData(newAccount.id);
+        await window.electron.riot.clearSession(newAccount.id);
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         addAlert('info', '自動ログイン開始', 'Riot Clientを起動して自動ログインします...');
@@ -310,11 +303,11 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
   // 追加時ログイン確認ハンドラ
   const saveAddLoginData = async (accountId: string) => {
     try {
+      // クライアントを終了させ、最新セッションをアカウントフォルダに書き出させる
       const killed = await window.electron.riot.killClient();
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
-      await window.electron.riot.saveYaml(accountId);
       const settings = await window.electron.settings.get();
       await window.electron.settings.save({ ...settings, activeAccountId: accountId });
       setActiveAccountId(accountId);
@@ -335,6 +328,8 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         break;
       case 'failed':
         if (addPendingId) {
+          // フォルダ削除でジャンクションを外すため、先にクライアントを終了する
+          await window.electron.riot.killClient();
           await window.electron.accounts.delete(addPendingId);
         }
         addAlert('error', 'ログイン失敗', 'ログインに失敗しました。ID/パスワードを確認してください。');
@@ -355,6 +350,8 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       }
     } else {
       if (addPendingId) {
+        // フォルダ削除でジャンクションを外すため、先にクライアントを終了する
+        await window.electron.riot.killClient();
         await window.electron.accounts.delete(addPendingId);
       }
       addAlert('error', 'ログイン失敗', '二段階認証に失敗しました。');
@@ -396,30 +393,22 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
     setActiveAccountId(id);
     try {
       // RiotClientServicesが動いていれば終了して1秒待つ
+      // （終了時に最新セッションがアカウントフォルダへ直接書き出される）
       const killed = await window.electron.riot.killClient();
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      // 直前までアクティブだったアカウントの最新セッション（ローテーション済みssid）を
-      // 保存コピーに反映してから削除する。失敗しても切り替え自体は続行する。
-      if (prevActiveId) {
-        try {
-          await window.electron.riot.saveYaml(prevActiveId);
-        } catch (e) {
-          console.error('Failed to save previous account yaml:', e);
-        }
-      }
-      // 現在のyamlを削除
-      await window.electron.riot.deleteYaml();
-      // 新しいアカウントのyamlを復元
-      await window.electron.riot.restoreYaml(id);
+      // Data ジャンクションを切り替え先アカウントのフォルダへ張り替える
+      await window.electron.riot.switchData(id);
       const settings = await window.electron.settings.get();
       await window.electron.settings.save({ ...settings, activeAccountId: id });
       // Riot Clientを起動
       await window.electron.riot.launchClient();
       onActiveChange?.();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save active account:', error);
+      setActiveAccountId(prevActiveId);
+      addAlert('error', 'エラー', error.message || 'アカウントの切り替えに失敗しました。');
     } finally {
       isSwitchingRef.current = false;
       setIsSwitching(false);
@@ -493,13 +482,13 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
     }
   }, [detailAccount, editForm, addAlert]);
 
-  // ショップデータ取得
-  const fetchShop = useCallback(async (accountId: string) => {
+  // ショップデータ取得（force で手動更新、それ以外はキャッシュ優先）
+  const fetchShop = useCallback(async (accountId: string, force = false) => {
     setShopLoading(true);
     setShopError(null);
     setShopData(null);
     try {
-      const data = await window.electron.shop.getStorefront(accountId);
+      const data = await window.electron.shop.getStorefront(accountId, force);
       setShopData(data);
       setShopCountdown(data.dailyRemainingSeconds);
     } catch (error: any) {
@@ -575,8 +564,9 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         setDetailAccount(null);
         setIsDetailOpen(false);
         loadAccounts();
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to delete account:', error);
+        addAlert('error', 'エラー', error.message || 'アカウントの削除に失敗しました。Riot Clientを終了してから再試行してください。');
       }
     }
   };
@@ -590,19 +580,14 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      // 2. アクティブだったアカウントの最新セッションを保存してからトグルを解除
+      // 2. 一時ログイン用に _unselected へ張り替えてセッションを空にする
+      //    （switchData が旧アクティブの実データを移行するため、設定変更より先に呼ぶ）
+      await window.electron.riot.switchData(null);
+      await window.electron.riot.clearSession(null);
+      // 3. トグルを解除
       const settings = await window.electron.settings.get();
-      if (settings.activeAccountId) {
-        try {
-          await window.electron.riot.saveYaml(settings.activeAccountId);
-        } catch (e) {
-          console.error('Failed to save previous account yaml:', e);
-        }
-      }
       setActiveAccountId(null);
       await window.electron.settings.save({ ...settings, activeAccountId: undefined });
-      // 3. YAML を削除
-      await window.electron.riot.deleteYaml();
       await new Promise(resolve => setTimeout(resolve, 1000));
       // 4. マクロログイン（stayボタンスキップ）
       addAlert('info', 'マクロログイン開始', 'Riot Clientを起動してマクロログインします...');
@@ -627,16 +612,10 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       if (killed) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      // アクティブだったアカウントの最新セッションを保存してから削除する
-      const settings = await window.electron.settings.get();
-      if (settings.activeAccountId) {
-        try {
-          await window.electron.riot.saveYaml(settings.activeAccountId);
-        } catch (e) {
-          console.error('Failed to save previous account yaml:', e);
-        }
-      }
-      await window.electron.riot.deleteYaml();
+      // ジャンクションを対象アカウントへ張り替え、セッションを退避してログイン画面を出す
+      // （ログイン失敗時は restoreSession で退避分を戻せる）
+      await window.electron.riot.switchData(id);
+      await window.electron.riot.clearSession(id);
       await new Promise(resolve => setTimeout(resolve, 1000));
       addAlert('info', '自動ログイン開始', 'Riot Clientを起動して自動ログインします...');
       await window.electron.accounts.login(id);
@@ -656,7 +635,7 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       case 'success':
         if (refreshTargetId) {
           try {
-            await window.electron.riot.saveYaml(refreshTargetId);
+            // 新しいセッションはジャンクション経由でアカウントフォルダに直接書かれる
             const settings = await window.electron.settings.get();
             await window.electron.settings.save({ ...settings, activeAccountId: refreshTargetId });
             setActiveAccountId(refreshTargetId);
@@ -668,7 +647,11 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         }
         break;
       case 'failed':
-        // 元のyamlに戻す（フォルダは既に削除済みなので何もしない）
+        // 退避しておいた元のセッションに戻す
+        if (refreshTargetId) {
+          await window.electron.riot.killClient();
+          await window.electron.riot.restoreSession(refreshTargetId);
+        }
         addAlert('error', '更新失敗', 'ログインデータの更新に失敗しました。再度お試しください。');
         break;
       case '2fa':
@@ -684,11 +667,11 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
     if (value === 'done') {
       if (refreshTargetId) {
         try {
+          // クライアントを終了させ、最新セッションをアカウントフォルダに書き出させる
           const killed = await window.electron.riot.killClient();
           if (killed) {
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
-          await window.electron.riot.saveYaml(refreshTargetId);
           const settings = await window.electron.settings.get();
           await window.electron.settings.save({ ...settings, activeAccountId: refreshTargetId });
           setActiveAccountId(refreshTargetId);
@@ -699,6 +682,11 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         }
       }
     } else {
+      // 退避しておいた元のセッションに戻す
+      if (refreshTargetId) {
+        await window.electron.riot.killClient();
+        await window.electron.riot.restoreSession(refreshTargetId);
+      }
       addAlert('error', '更新失敗', 'ログインデータの更新に失敗しました。再度お試しください。');
     }
     setIsRefreshing(false);
@@ -1098,7 +1086,7 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
                         )}
                         <button
                           className="shop-refresh-btn"
-                          onClick={() => fetchShop(detailAccount.id)}
+                          onClick={() => fetchShop(detailAccount.id, true)}
                           disabled={shopLoading}
                           title="ショップを再取得"
                         >
@@ -1117,7 +1105,7 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
                     {shopError && (
                       <div className="shop-error">
                         <span>{shopError}</span>
-                        <button className="shop-retry-btn" onClick={() => fetchShop(detailAccount.id)}>
+                        <button className="shop-retry-btn" onClick={() => fetchShop(detailAccount.id, true)}>
                           再試行
                         </button>
                       </div>

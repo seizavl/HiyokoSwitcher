@@ -42,9 +42,9 @@ contextBridge.exposeInMainWorld('electron', {
     openExternal: (url: string) => ipcRenderer.invoke('shell:openExternal', url),
   },
   riot: {
-    deleteYaml: () => ipcRenderer.invoke('riot:deleteYaml'),
-    saveYaml: (accountId: string) => ipcRenderer.invoke('riot:saveYaml', accountId),
-    restoreYaml: (accountId: string) => ipcRenderer.invoke('riot:restoreYaml', accountId),
+    switchData: (accountId: string | null) => ipcRenderer.invoke('riot:switchData', accountId),
+    clearSession: (accountId: string | null) => ipcRenderer.invoke('riot:clearSession', accountId),
+    restoreSession: (accountId: string | null) => ipcRenderer.invoke('riot:restoreSession', accountId),
     deleteYamlFolder: (accountId: string) => ipcRenderer.invoke('riot:deleteYamlFolder', accountId),
     killClient: () => ipcRenderer.invoke('riot:killClient'),
     launchClient: () => ipcRenderer.invoke('riot:launchClient'),
@@ -61,7 +61,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
   },
   shop: {
-    getStorefront: (accountId: string) => ipcRenderer.invoke('shop:getStorefront', accountId),
+    getStorefront: (accountId: string, force?: boolean) => ipcRenderer.invoke('shop:getStorefront', accountId, force),
   },
   livegame: {
     getState: () => ipcRenderer.invoke('livegame:getState'),

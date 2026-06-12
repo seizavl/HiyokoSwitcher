@@ -62,10 +62,10 @@ interface ElectronAPI {
     openExternal: (url: string) => Promise<boolean>;
   };
   riot: {
-    deleteYaml: () => Promise<boolean>;
+    switchData: (accountId: string | null) => Promise<boolean>;
+    clearSession: (accountId: string | null) => Promise<boolean>;
+    restoreSession: (accountId: string | null) => Promise<boolean>;
     deleteYamlFolder: (accountId: string) => Promise<boolean>;
-    saveYaml: (accountId: string) => Promise<boolean>;
-    restoreYaml: (accountId: string) => Promise<boolean>;
     killClient: () => Promise<boolean>;
     launchClient: () => Promise<boolean>;
     launchValorant: () => Promise<boolean>;
@@ -81,7 +81,7 @@ interface ElectronAPI {
     onStatus: (listener: (status: 'starting' | 'ready' | 'error') => void) => () => void;
   };
   shop: {
-    getStorefront: (accountId: string) => Promise<ShopStorefront>;
+    getStorefront: (accountId: string, force?: boolean) => Promise<ShopStorefront>;
   };
   livegame: {
     getState: () => Promise<'ingame' | 'pregame' | 'menus' | 'not_running'>;

@@ -448,6 +448,7 @@ const createWindow = (): void => {
     height: 600,
     frame: false,
     resizable: false,
+    maximizable: false, // ドラッグ領域（タイトルバー）ダブルクリックでの最大化を無効化
     show: false,
     backgroundColor: '#000000',
     icon: app.isPackaged
@@ -821,16 +822,19 @@ app.whenReady().then(() => {
     );
   };
 
-  // RiotClientServices.exe が動いているか確認
-  const isRiotClientRunning = (): boolean => {
+  // 指定した実行ファイル名のプロセスが動いているか確認
+  const isProcessRunning = (imageName: string): boolean => {
     try {
       const { execSync } = require('child_process');
-      const tasklist = execSync('tasklist /FI "IMAGENAME eq RiotClientServices.exe" /NH', { encoding: 'utf-8' });
-      return tasklist.includes('RiotClientServices.exe');
+      const tasklist = execSync(`tasklist /FI "IMAGENAME eq ${imageName}" /NH`, { encoding: 'utf-8' });
+      return tasklist.includes(imageName);
     } catch {
       return false;
     }
   };
+
+  // RiotClientServices.exe が動いているか確認
+  const isRiotClientRunning = (): boolean => isProcessRunning('RiotClientServices.exe');
 
   // RiotClientServices.exe が動いていれば終了する。
   // Riot Client は終了時に最新セッションを RiotGamesPrivateSettings.yaml へ
@@ -923,105 +927,149 @@ app.whenReady().then(() => {
   // 管理対象のyamlファイル名一覧
   const RIOT_YAML_FILES = ['RiotGamesPrivateSettings.yaml', 'ShutdownData.yaml'];
 
-  // RiotGamesPrivateSettings.yaml + ShutdownData.yaml を削除
-  ipcMain.handle('riot:deleteYaml', async () => {
-    const riotDataDir = getRiotDataDir();
-    try {
-      for (const fileName of RIOT_YAML_FILES) {
-        const filePath = path.join(riotDataDir, fileName);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      }
-      return true;
-    } catch (error: any) {
-      console.error('Failed to delete yaml:', error);
-      throw error;
-    }
-  });
-
-  // yamlファイルの保存先ディレクトリ
+  // アカウントデータの保存先ディレクトリ
   const yamlDir = path.join(dataDir, 'yaml');
   if (!fs.existsSync(yamlDir)) {
     fs.mkdirSync(yamlDir, { recursive: true });
   }
 
-  // yaml ファイルをセットでコピーしてアカウントに紐づけて保存
-  ipcMain.handle('riot:saveYaml', async (_event, accountId: string) => {
-    const riotDataDir = getRiotDataDir();
-    try {
-      // RiotGamesPrivateSettings.yaml は必須
-      const mainYaml = path.join(riotDataDir, 'RiotGamesPrivateSettings.yaml');
-      if (!fs.existsSync(mainYaml)) {
-        throw new Error('RiotGamesPrivateSettings.yaml が見つかりません');
-      }
-      // アカウント専用ディレクトリに保存
-      const accountYamlDir = path.join(yamlDir, accountId);
-      if (!fs.existsSync(accountYamlDir)) {
-        fs.mkdirSync(accountYamlDir, { recursive: true });
-      }
-      for (const fileName of RIOT_YAML_FILES) {
-        const srcPath = path.join(riotDataDir, fileName);
-        if (fs.existsSync(srcPath)) {
-          fs.copyFileSync(srcPath, path.join(accountYamlDir, fileName));
-        }
-      }
-      return true;
-    } catch (error: any) {
-      console.error('Failed to save yaml:', error);
-      throw error;
+  // ============================
+  // Riot Data ジャンクション管理
+  // ============================
+  // 設計: Riot Client の Data フォルダ自体を、アカウント専用フォルダへの
+  // ジャンクション（ディレクトリリンク）にする。セッション YAML の実体が
+  // アカウントごとに常に1つになり、Riot Client が書き出す最新セッションが
+  // そのまま保存データになるため、コピーずれによるセッション喪失が起こらない。
+
+  // どのアカウントも選択していないときの受け皿は _unselected フォルダ
+  const accountDataDir = (accountId: string | null): string =>
+    path.join(yamlDir, accountId ?? '_unselected');
+
+  const lstatOrNull = (p: string): fs.Stats | null => {
+    try { return fs.lstatSync(p); } catch { return null; }
+  };
+
+  // Data ジャンクションが現在向いている先（ジャンクションでなければ null）
+  const currentDataTarget = (): string | null => {
+    const dataDirPath = getRiotDataDir();
+    if (!lstatOrNull(dataDirPath)?.isSymbolicLink()) return null;
+    try { return path.resolve(fs.readlinkSync(dataDirPath)); } catch { return null; }
+  };
+
+  const copyDirRecursive = (src: string, dest: string): void => {
+    fs.mkdirSync(dest, { recursive: true });
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      const s = path.join(src, entry.name);
+      const d = path.join(dest, entry.name);
+      if (entry.isDirectory()) copyDirRecursive(s, d);
+      else fs.copyFileSync(s, d);
     }
+  };
+
+  // コピー → 検証 → 削除の順で移動し、途中失敗で元データが消えないようにする
+  const moveDirContents = (src: string, dest: string): void => {
+    copyDirRecursive(src, dest);
+    for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+      const s = path.join(src, entry.name);
+      const d = path.join(dest, entry.name);
+      if (!fs.existsSync(d)) throw new Error(`データ移行の検証に失敗しました: ${d}`);
+      if (entry.isFile() && fs.statSync(s).size !== fs.statSync(d).size) {
+        throw new Error(`データ移行の検証に失敗しました（サイズ不一致）: ${d}`);
+      }
+    }
+    for (const entry of fs.readdirSync(src)) {
+      fs.rmSync(path.join(src, entry), { recursive: true, force: true });
+    }
+  };
+
+  // Data ジャンクションを指定アカウントのフォルダへ張り替える
+  const switchRiotData = (accountId: string | null): void => {
+    if (isProcessRunning('VALORANT-Win64-Shipping.exe')) {
+      throw new Error('VALORANTの実行中はアカウントを切り替えできません');
+    }
+    if (isRiotClientRunning()) {
+      throw new Error('Riot Clientの実行中はアカウントを切り替えできません');
+    }
+
+    const dataDirPath = getRiotDataDir();
+    const target = accountDataDir(accountId);
+    fs.mkdirSync(target, { recursive: true });
+
+    const st = lstatOrNull(dataDirPath);
+    if (st?.isSymbolicLink()) {
+      fs.rmdirSync(dataDirPath); // リンクのみ削除（実体のフォルダは残る）
+    } else if (st?.isDirectory()) {
+      // コピー方式からの初回移行: 実フォルダの中身（最新セッションを含む）を
+      // 直前までアクティブだったアカウントのフォルダへ退避してから置き換える
+      const prevId = loadSettings(settingsFilePath).activeAccountId ?? null;
+      moveDirContents(dataDirPath, accountDataDir(prevId));
+      fs.rmdirSync(dataDirPath);
+    }
+
+    fs.mkdirSync(path.dirname(dataDirPath), { recursive: true });
+    fs.symlinkSync(target, dataDirPath, 'junction');
+  };
+
+  // セッション YAML を .bak に退避して消す（ログイン画面を出すため）
+  const clearSessionFiles = (accountId: string | null): void => {
+    const dir = accountDataDir(accountId);
+    for (const fileName of RIOT_YAML_FILES) {
+      const p = path.join(dir, fileName);
+      if (fs.existsSync(p)) fs.renameSync(p, p + '.bak');
+    }
+  };
+
+  // clearSession で退避したセッション YAML を元に戻す（ログイン失敗時用）
+  const restoreSessionBackup = (accountId: string | null): void => {
+    const dir = accountDataDir(accountId);
+    for (const fileName of RIOT_YAML_FILES) {
+      const bak = path.join(dir, fileName + '.bak');
+      if (fs.existsSync(bak)) fs.renameSync(bak, path.join(dir, fileName));
+    }
+  };
+
+  // アカウントのデータフォルダを削除（ジャンクションが向いていたら先に外す）
+  const deleteAccountDataDir = (accountId: string): boolean => {
+    const dir = accountDataDir(accountId);
+    if (!fs.existsSync(dir)) return false;
+    const target = currentDataTarget();
+    if (target && target.toLowerCase() === path.resolve(dir).toLowerCase()) {
+      switchRiotData(null); // Riot Client 実行中はここで例外になり削除を中断する
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+    return true;
+  };
+
+  ipcMain.handle('riot:switchData', (_event, accountId: string | null) => {
+    switchRiotData(accountId);
+    return true;
   });
 
-  // 保存された yaml ファイルをセットで元の場所に復元する
-  ipcMain.handle('riot:restoreYaml', async (_event, accountId: string) => {
-    const riotDataDir = getRiotDataDir();
-    try {
-      const accountYamlDir = path.join(yamlDir, accountId);
-      const mainYaml = path.join(accountYamlDir, 'RiotGamesPrivateSettings.yaml');
-      if (!fs.existsSync(mainYaml)) {
-        console.log('復元するyamlファイルがありません');
-        return false;
-      }
-      // 復元先ディレクトリが存在することを確認
-      if (!fs.existsSync(riotDataDir)) {
-        fs.mkdirSync(riotDataDir, { recursive: true });
-      }
-      for (const fileName of RIOT_YAML_FILES) {
-        const srcPath = path.join(accountYamlDir, fileName);
-        if (fs.existsSync(srcPath)) {
-          fs.copyFileSync(srcPath, path.join(riotDataDir, fileName));
-        }
-      }
-      return true;
-    } catch (error: any) {
-      console.error('Failed to restore yaml:', error);
-      throw error;
-    }
+  ipcMain.handle('riot:clearSession', (_event, accountId: string | null) => {
+    clearSessionFiles(accountId);
+    return true;
+  });
+
+  ipcMain.handle('riot:restoreSession', (_event, accountId: string | null) => {
+    restoreSessionBackup(accountId);
+    return true;
   });
 
   // 該当アカウントのyamlフォルダを削除
   ipcMain.handle('riot:deleteYamlFolder', (_event, accountId: string) => {
-    const accountYamlDir = path.join(yamlDir, accountId);
-    if (fs.existsSync(accountYamlDir)) {
-      fs.rmSync(accountYamlDir, { recursive: true, force: true });
-      console.log(`Deleted yaml folder: ${accountYamlDir}`);
-      return true;
-    }
-    return false;
+    return deleteAccountDataDir(accountId);
   });
 
   // アカウント削除
   ipcMain.handle('accounts:delete', (_event, id) => {
+    // 先にデータフォルダを削除する（ジャンクションが向いていて外せない場合は
+    // ここで例外になり、アカウント本体は消えずに済む）
+    deleteAccountDataDir(id);
     const accounts = loadAccounts(accountsFilePath);
     const filteredAccounts = accounts.filter(acc => acc.id !== id);
     saveAccounts(accountsFilePath, filteredAccounts);
-    // 該当アカウントのyamlフォルダも削除
-    const yamlAccountDir = path.join(dataDir, 'yaml', id);
-    if (fs.existsSync(yamlAccountDir)) {
-      fs.rmSync(yamlAccountDir, { recursive: true, force: true });
-      console.log(`Deleted yaml folder: ${yamlAccountDir}`);
-    }
+    // ショップキャッシュも削除
+    fs.rmSync(path.join(dataDir, 'shopcache', `${id}.json`), { force: true });
     return true;
   });
 
@@ -1352,8 +1400,68 @@ app.whenReady().then(() => {
     }
   }
 
+  // ============================
+  // ショップ日次キャッシュ
+  // ============================
+  // デイリーショップは1日1回しか変わらないため、残り時間内はキャッシュを返す。
+  // 認証（= ssid ローテーション）の回数を減らすのが目的で、セッション保護も兼ねる。
+  const shopCacheDir = path.join(dataDir, 'shopcache');
+  if (!fs.existsSync(shopCacheDir)) {
+    fs.mkdirSync(shopCacheDir, { recursive: true });
+  }
+
+  const shopCachePath = (accountId: string): string =>
+    path.join(shopCacheDir, `${accountId}.json`);
+
+  const loadShopCache = (accountId: string): any | null => {
+    try {
+      const cached = JSON.parse(fs.readFileSync(shopCachePath(accountId), 'utf-8'));
+      const dailyRemainingSeconds = Math.floor((cached.dailyExpiresAt - Date.now()) / 1000);
+      if (dailyRemainingSeconds <= 0) return null;
+      const nightMarketRemainingSeconds = cached.nightMarketExpiresAt
+        ? Math.floor((cached.nightMarketExpiresAt - Date.now()) / 1000)
+        : null;
+      return {
+        dailyOffers: cached.dailyOffers,
+        dailyRemainingSeconds,
+        nightMarket:
+          nightMarketRemainingSeconds && nightMarketRemainingSeconds > 0
+            ? cached.nightMarket
+            : null,
+        nightMarketRemainingSeconds,
+      };
+    } catch {
+      return null;
+    }
+  };
+
+  const saveShopCache = (accountId: string, storefront: any): void => {
+    try {
+      fs.writeFileSync(
+        shopCachePath(accountId),
+        JSON.stringify({
+          dailyExpiresAt: Date.now() + storefront.dailyRemainingSeconds * 1000,
+          nightMarketExpiresAt: storefront.nightMarketRemainingSeconds
+            ? Date.now() + storefront.nightMarketRemainingSeconds * 1000
+            : null,
+          dailyOffers: storefront.dailyOffers,
+          nightMarket: storefront.nightMarket,
+        }),
+        'utf-8'
+      );
+    } catch (error) {
+      console.error('Failed to save shop cache:', error);
+    }
+  };
+
   // ストアフロント取得 IPC ハンドラー
-  ipcMain.handle('shop:getStorefront', async (_event, accountId: string) => {
+  ipcMain.handle('shop:getStorefront', async (_event, accountId: string, force: boolean = false) => {
+    // 残り時間内のキャッシュがあれば再認証せずに返す（force は手動更新用）
+    if (!force) {
+      const cached = loadShopCache(accountId);
+      if (cached) return cached;
+    }
+
     // 1. 保存済み YAML 読み込み
     const yamlPath = path.join(yamlDir, accountId, 'RiotGamesPrivateSettings.yaml');
     if (!fs.existsSync(yamlPath)) {
@@ -1566,12 +1674,14 @@ app.whenReady().then(() => {
 
     // クッキーの永続化は認証直後（step1/step2）に実施済み
 
-    return {
+    const storefront = {
       dailyOffers,
       dailyRemainingSeconds,
       nightMarket,
       nightMarketRemainingSeconds,
     };
+    saveShopCache(accountId, storefront);
+    return storefront;
   });
 
   // ============================

@@ -108,17 +108,6 @@ const Rank: React.FC = () => {
     let completed = 0;
     const total = selected.length;
 
-    // セッション更新で live YAML を消す前に、アクティブだったアカウントの
-    // 最新セッションを保存コピーへ反映しておく（最後の restoreYaml で戻す）
-    if (prevActiveId && (updateMode === 'session' || updateMode === 'both')) {
-      try {
-        await window.electron.riot.killClient();
-        await window.electron.riot.saveYaml(prevActiveId);
-      } catch (e) {
-        console.error('Failed to save active account YAML:', e);
-      }
-    }
-
     for (let i = 0; i < selected.length; i++) {
       const account = selected[i];
       // Henrik API のレートリミット回避のため、2 件目以降は短いディレイを挟む
@@ -143,25 +132,27 @@ const Rank: React.FC = () => {
             continue;
           }
 
-          // handleAddAccount と同じフロー
+          // ジャンクションを対象アカウントへ張り替え、セッションを退避してログインし直す
           const killed = await window.electron.riot.killClient();
           if (killed) await new Promise(r => setTimeout(r, 1000));
-          await window.electron.riot.deleteYaml();
+          await window.electron.riot.switchData(account.id);
+          await window.electron.riot.clearSession(account.id);
           await new Promise(r => setTimeout(r, 1000));
           await window.electron.accounts.login(account.id);
           window.electron.window.focus();
 
+          // クライアント終了時に新しいセッションがアカウントフォルダへ直接書き出される
           if (use2faConfirm) {
             const result = await waitForSessionConfirm();
-            if (result === 'success') {
-              const killed2 = await window.electron.riot.killClient();
-              if (killed2) await new Promise(r => setTimeout(r, 2000));
-              await window.electron.riot.saveYaml(account.id);
+            const killed2 = await window.electron.riot.killClient();
+            if (killed2) await new Promise(r => setTimeout(r, 2000));
+            if (result !== 'success') {
+              // 失敗時は退避しておいた元のセッションに戻す
+              await window.electron.riot.restoreSession(account.id);
             }
           } else {
             await new Promise(r => setTimeout(r, 2000));
             await window.electron.riot.killClient();
-            await window.electron.riot.saveYaml(account.id);
           }
         }
 
@@ -177,13 +168,13 @@ const Rank: React.FC = () => {
 
     setIsRunning(false);
 
-    // セッション更新後、元の activeAccount の YAML に戻す
-    if (prevActiveId && (updateMode === 'session' || updateMode === 'both')) {
+    // セッション更新後、ジャンクションを元の activeAccount（未選択なら _unselected）に戻す
+    if (updateMode === 'session' || updateMode === 'both') {
       try {
         await window.electron.riot.killClient();
-        await window.electron.riot.restoreYaml(prevActiveId);
+        await window.electron.riot.switchData(prevActiveId);
       } catch (e) {
-        console.error('Failed to restore active account YAML:', e);
+        console.error('Failed to restore active account data:', e);
       }
     }
 
