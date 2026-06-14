@@ -1019,12 +1019,22 @@ app.whenReady().then(() => {
     }
   };
 
-  // clearSession で退避したセッション YAML を元に戻す（ログイン失敗時用）
+  // clearSession で退避した .bak を処理する。成功/失敗を推測せず、ログイン後に
+  // 新しいセッション YAML が実際に書き出されたか（実体の有無）で判定する:
+  //   - 新セッションあり（ログイン成功）→ 不要な .bak を破棄
+  //   - 新セッションなし（ログイン失敗）→ .bak から復元
+  // これによりログイン試行後に常に呼んでも安全（モードに依存しない）。
   const restoreSessionBackup = (accountId: string | null): void => {
     const dir = accountDataDir(accountId);
     for (const fileName of RIOT_YAML_FILES) {
-      const bak = path.join(dir, fileName + '.bak');
-      if (fs.existsSync(bak)) fs.renameSync(bak, path.join(dir, fileName));
+      const live = path.join(dir, fileName);
+      const bak = live + '.bak';
+      if (!fs.existsSync(bak)) continue;
+      if (fs.existsSync(live)) {
+        fs.rmSync(bak, { force: true });
+      } else {
+        fs.renameSync(bak, live);
+      }
     }
   };
 

@@ -294,9 +294,23 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
 
       setAddForm({ accountname: '', accounttag: '', riotId: '', riotPassword: '' });
     } catch (error: any) {
+      // ログイン開始前にジャンクションを張り替えていた可能性があるため、元へ戻す
+      // （バックエンド不調などで login が例外を投げてもログアウト状態にしない）
+      await restoreActiveJunction();
       addAlert('error', 'エラー', error.message || 'アカウントの追加に失敗しました');
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  // 追加失敗時、ジャンクションを元のアクティブアカウント（未選択なら _unselected）へ戻す。
+  // 追加フロー中は settings.activeAccountId を変更していないので、保存済みの値がそのまま使える。
+  const restoreActiveJunction = async () => {
+    try {
+      const settings = await window.electron.settings.get();
+      await window.electron.riot.switchData(settings.activeAccountId ?? null);
+    } catch (e) {
+      console.error('Failed to restore active junction:', e);
     }
   };
 
@@ -331,6 +345,8 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
           // フォルダ削除でジャンクションを外すため、先にクライアントを終了する
           await window.electron.riot.killClient();
           await window.electron.accounts.delete(addPendingId);
+          // ジャンクションを元のアクティブアカウントへ戻す（ログアウト状態を防ぐ）
+          await restoreActiveJunction();
         }
         addAlert('error', 'ログイン失敗', 'ログインに失敗しました。ID/パスワードを確認してください。');
         break;
@@ -353,6 +369,8 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         // フォルダ削除でジャンクションを外すため、先にクライアントを終了する
         await window.electron.riot.killClient();
         await window.electron.accounts.delete(addPendingId);
+        // ジャンクションを元のアクティブアカウントへ戻す（ログアウト状態を防ぐ）
+        await restoreActiveJunction();
       }
       addAlert('error', 'ログイン失敗', '二段階認証に失敗しました。');
     }
@@ -623,6 +641,13 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
       setShowRefreshConfirm(true);
     } catch (error: any) {
       console.error('Failed to refresh yaml:', error);
+      // ログイン開始前に失敗した場合、退避セッションと元のアクティブアカウントを復元する
+      try {
+        await window.electron.riot.restoreSession(id);
+        await restoreActiveJunction();
+      } catch (e) {
+        console.error('Failed to restore after refresh error:', e);
+      }
       addAlert('error', 'エラー', error.message || 'ログインデータの更新に失敗しました。');
       setIsRefreshing(false);
       setRefreshTargetId(null);
@@ -647,10 +672,12 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         }
         break;
       case 'failed':
-        // 退避しておいた元のセッションに戻す
+        // 退避しておいた元のセッションに戻し、ジャンクションを元のアクティブアカウントへ戻す
+        // （別アカウントを更新していた場合、失敗で元アカウントからログアウトしてしまうのを防ぐ）
         if (refreshTargetId) {
           await window.electron.riot.killClient();
           await window.electron.riot.restoreSession(refreshTargetId);
+          await restoreActiveJunction();
         }
         addAlert('error', '更新失敗', 'ログインデータの更新に失敗しました。再度お試しください。');
         break;
@@ -682,10 +709,11 @@ const Account: React.FC<AccountProps> = ({ onActiveChange, pythonStatus }) => {
         }
       }
     } else {
-      // 退避しておいた元のセッションに戻す
+      // 退避しておいた元のセッションに戻し、ジャンクションを元のアクティブアカウントへ戻す
       if (refreshTargetId) {
         await window.electron.riot.killClient();
         await window.electron.riot.restoreSession(refreshTargetId);
+        await restoreActiveJunction();
       }
       addAlert('error', '更新失敗', 'ログインデータの更新に失敗しました。再度お試しください。');
     }

@@ -82,6 +82,8 @@ const AddAccount: React.FC = () => {
       setTimeout(() => nameInputRef.current?.focus(), 100);
     } catch (error: any) {
       console.error('Failed to add account:', error);
+      // ログイン開始前にジャンクションを張り替えていた可能性があるため、元へ戻す
+      await restorePreviousYaml();
       const errorMessage = error.message || 'アカウントの追加に失敗しました';
       addAlert('error', 'エラー', errorMessage);
     } finally {

@@ -141,19 +141,18 @@ const Rank: React.FC = () => {
           await window.electron.accounts.login(account.id);
           window.electron.window.focus();
 
-          // クライアント終了時に新しいセッションがアカウントフォルダへ直接書き出される
+          // クライアント終了時に新しいセッションがアカウントフォルダへ直接書き出される。
+          // restoreSession は新セッションの有無で判定するため、成功・失敗どちらでも
+          // 常に呼んでよい（成功なら新セッション保持、失敗なら退避分を自動復元）。
           if (use2faConfirm) {
-            const result = await waitForSessionConfirm();
+            await waitForSessionConfirm();
             const killed2 = await window.electron.riot.killClient();
             if (killed2) await new Promise(r => setTimeout(r, 2000));
-            if (result !== 'success') {
-              // 失敗時は退避しておいた元のセッションに戻す
-              await window.electron.riot.restoreSession(account.id);
-            }
           } else {
             await new Promise(r => setTimeout(r, 2000));
             await window.electron.riot.killClient();
           }
+          await window.electron.riot.restoreSession(account.id);
         }
 
         updateStatus(account.id, 'done');
