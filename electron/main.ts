@@ -682,31 +682,44 @@ app.whenReady().then(() => {
       const settings = loadSettings(settingsFilePath);
       const apiKey = settings.apiKey;
 
-      if (!apiKey) {
-        throw new Error('API key not set. Please set it in Settings.');
+      // APIエラー時のデフォルト値（取得に失敗してもそのまま登録を続行する）
+      let rank = 'Unranked';
+      let rankIcon = 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/0/largeicon.png';
+      let level = 1;
+      let usericon = '';
+
+      try {
+        if (!apiKey) {
+          throw new Error('API key not set. Please set it in Settings.');
+        }
+
+        // アカウント情報取得
+        const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
+        const accountData = await fetchValorantAPI(accountUrl, apiKey);
+
+        if (accountData.status !== 200) {
+          throw new Error(`Account not found (status: ${accountData.status})`);
+        }
+
+        level = accountData.data.account_level || 1;
+        usericon = accountData.data.card?.small || '';
+
+        // ランク情報取得
+        const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
+        const rankData = await fetchValorantAPI(rankUrl, apiKey);
+
+        console.log('Rank API Response:', JSON.stringify(rankData, null, 2));
+
+        if (rankData.status === 200 && rankData.data?.currenttierpatched) {
+          rank = rankData.data.currenttierpatched;
+          if (rankData.data?.images?.large) {
+            rankIcon = rankData.data.images.large;
+          }
+        }
+      } catch (apiError: any) {
+        // APIエラーが返ってきてもデフォルト値で登録を続行する
+        console.warn('Account API fetch failed, registering with default data:', apiError?.message || apiError);
       }
-
-      // アカウント情報取得
-      const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
-      const accountData = await fetchValorantAPI(accountUrl, apiKey);
-
-      if (accountData.status !== 200) {
-        throw new Error('Account not found');
-      }
-
-      // ランク情報取得
-      const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(accountInput.accountname)}/${encodeURIComponent(accountInput.accounttag)}`;
-      const rankData = await fetchValorantAPI(rankUrl, apiKey);
-
-      console.log('Rank API Response:', JSON.stringify(rankData, null, 2));
-
-      const rank = rankData.status === 200 && rankData.data?.currenttierpatched
-        ? rankData.data.currenttierpatched
-        : 'Unranked';
-
-      const rankIcon = rankData.status === 200 && rankData.data?.images?.large
-        ? rankData.data.images.large
-        : 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/0/largeicon.png';
 
       const accounts = loadAccounts(accountsFilePath);
       const newAccount: any = {
@@ -716,8 +729,8 @@ app.whenReady().then(() => {
         valorant: {
           rank: rank,
           rankicon: rankIcon,
-          level: accountData.data.account_level || 1,
-          usericon: accountData.data.card?.small || '',
+          level: level,
+          usericon: usericon,
         },
         createdAt: new Date().toISOString(),
       };
@@ -840,7 +853,8 @@ app.whenReady().then(() => {
   // Riot Client は終了時に最新セッションを RiotGamesPrivateSettings.yaml へ
   // 書き出すため、まず通常終了を試みて書き出しの猶予を与え、
   // 終了しない場合のみ強制終了にフォールバックする。
-  ipcMain.handle('riot:killClient', async () => {
+  // 終了した場合は true、もともと動いていなければ false を返す。
+  const killRiotClient = async (): Promise<boolean> => {
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     try {
       const { execSync } = require('child_process');
@@ -869,7 +883,9 @@ app.whenReady().then(() => {
       console.error('Failed to kill RiotClientServices:', error);
       return false;
     }
-  });
+  };
+
+  ipcMain.handle('riot:killClient', async () => killRiotClient());
 
   // VALORANT と LoL のプロセスを終了する
   ipcMain.handle('riot:killGames', async () => {
@@ -884,13 +900,18 @@ app.whenReady().then(() => {
   });
 
   // Riot Clientを起動する
+  // Riot Client を起動する。パス未設定や失敗時は throw する。
+  const launchRiotClient = (): void => {
+    const settings = loadSettings(settingsFilePath);
+    if (!settings.riotClientPath) {
+      throw new Error('Riot Client のパスが設定されていません');
+    }
+    spawn(settings.riotClientPath, [], { detached: true, stdio: 'ignore' }).unref();
+  };
+
   ipcMain.handle('riot:launchClient', async () => {
     try {
-      const settings = loadSettings(settingsFilePath);
-      if (!settings.riotClientPath) {
-        throw new Error('Riot Client のパスが設定されていません');
-      }
-      spawn(settings.riotClientPath, [], { detached: true, stdio: 'ignore' }).unref();
+      launchRiotClient();
       return true;
     } catch (error: any) {
       console.error('Failed to launch Riot Client:', error);
@@ -1104,33 +1125,45 @@ app.whenReady().then(() => {
 
     // 名前・タグが変わったらランク情報を再取得
     if (nameChanged) {
+      // APIエラー時のデフォルト値（取得に失敗してもそのまま更新を続行する）
+      let rank = 'Unranked';
+      let rankIcon = 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/0/largeicon.png';
+      let level = 0;
+      let usericon = '';
+
       try {
         const settings = loadSettings(settingsFilePath);
         const apiKey = settings.apiKey;
-        if (apiKey) {
-          const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(account.accountname)}/${encodeURIComponent(account.accounttag)}`;
-          const accountData = await fetchValorantAPI(accountUrl, apiKey);
-
-          const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(account.accountname)}/${encodeURIComponent(account.accounttag)}`;
-          const rankData = await fetchValorantAPI(rankUrl, apiKey);
-
-          const rank = rankData.status === 200 && rankData.data?.currenttierpatched
-            ? rankData.data.currenttierpatched
-            : 'Unranked';
-          const rankIcon = rankData.status === 200 && rankData.data?.images?.large
-            ? rankData.data.images.large
-            : 'https://media.valorant-api.com/competitivetiers/03621f52-342b-cf4e-4f86-9350a49c6d04/0/largeicon.png';
-
-          account.valorant = {
-            rank,
-            rankicon: rankIcon,
-            level: accountData.data?.account_level || 0,
-            usericon: accountData.data?.card?.small || '',
-          };
+        if (!apiKey) {
+          throw new Error('API key not set. Please set it in Settings.');
         }
-      } catch (error) {
-        console.error('Failed to fetch rank on update:', error);
+
+        const accountUrl = `https://api.henrikdev.xyz/valorant/v1/account/${encodeURIComponent(account.accountname)}/${encodeURIComponent(account.accounttag)}`;
+        const accountData = await fetchValorantAPI(accountUrl, apiKey);
+        if (accountData.status === 200) {
+          level = accountData.data?.account_level || 0;
+          usericon = accountData.data?.card?.small || '';
+        }
+
+        const rankUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/ap/${encodeURIComponent(account.accountname)}/${encodeURIComponent(account.accounttag)}`;
+        const rankData = await fetchValorantAPI(rankUrl, apiKey);
+        if (rankData.status === 200 && rankData.data?.currenttierpatched) {
+          rank = rankData.data.currenttierpatched;
+          if (rankData.data?.images?.large) {
+            rankIcon = rankData.data.images.large;
+          }
+        }
+      } catch (error: any) {
+        // APIエラーが返ってきてもデフォルト値で更新を続行する
+        console.warn('Failed to fetch rank on update, using default data:', error?.message || error);
       }
+
+      account.valorant = {
+        rank,
+        rankicon: rankIcon,
+        level,
+        usericon,
+      };
     }
 
     saveAccounts(accountsFilePath, accounts);
@@ -1467,11 +1500,20 @@ app.whenReady().then(() => {
   // ストアフロント取得 IPC ハンドラー
   ipcMain.handle('shop:getStorefront', async (_event, accountId: string, force: boolean = false) => {
     // 残り時間内のキャッシュがあれば再認証せずに返す（force は手動更新用）
+    // キャッシュから返す場合は Riot Client を閉じない（例外）。
     if (!force) {
       const cached = loadShopCache(accountId);
       if (cached) return cached;
     }
 
+    // Riot Client が起動していると保存済みセッション（YAML）と競合して
+    // 認証フローが分岐してしまうため、実取得の前に必ず閉じて少し待つ。
+    const killed = await killRiotClient();
+    if (killed) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+
+    try {
     // 1. 保存済み YAML 読み込み
     const yamlPath = path.join(yamlDir, accountId, 'RiotGamesPrivateSettings.yaml');
     if (!fs.existsSync(yamlPath)) {
@@ -1692,6 +1734,17 @@ app.whenReady().then(() => {
     };
     saveShopCache(accountId, storefront);
     return storefront;
+    } finally {
+      // 取得のために閉じた場合のみ Riot Client を元どおり再起動する。
+      // もともと起動していなかった場合（killed=false）は起動しない。
+      if (killed) {
+        try {
+          launchRiotClient();
+        } catch (error: any) {
+          console.error('Failed to relaunch Riot Client after shop fetch:', error);
+        }
+      }
+    }
   });
 
   // ============================
