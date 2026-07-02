@@ -1,52 +1,76 @@
 <div align="center">
 
-<a href="https://github.com/seizavl/HiyokoSwitcher">
-  <img width="200" height="200" alt="hiyokologo" src="https://github.com/user-attachments/assets/ec1f093c-3525-418d-b743-2ea70c9ec568" />
+<a href="https://seizavl.github.io/HiyokoSwitcher/">
+  <img width="180" height="180" alt="HiyokoSwitcher" src="https://github.com/user-attachments/assets/ec1f093c-3525-418d-b743-2ea70c9ec568" />
 </a>
 
-<h5>HiyokoSwitcher</h5>
+<h1>HiyokoSwitcher</h1>
+
+**Valorant のアカウント切り替えを、ワンクリックに。**
 
 <a href="https://github.com/seizavl/HiyokoSwitcher/releases">
-  <img src="https://img.shields.io/github/downloads/seizavl/HiyokoSwitcher/total?label=DOWNLOADS&labelColor=1E1E1E&color=466bff&style=for-the-badge" alt="Downloads" />
+  <img src="https://img.shields.io/github/downloads/seizavl/HiyokoSwitcher/total?label=DOWNLOADS&labelColor=1E1E1E&color=ffc233&style=for-the-badge" alt="Downloads" />
+</a>
+<a href="https://seizavl.github.io/HiyokoSwitcher/">
+  <img src="https://img.shields.io/badge/WEBSITE-ffc233?labelColor=1E1E1E&style=for-the-badge" alt="Website" />
+</a>
+<a href="https://discord.gg/UTN5eewkb5">
+  <img src="https://img.shields.io/badge/DISCORD-5865F2?logo=discord&logoColor=white&labelColor=1E1E1E&style=for-the-badge" alt="Discord" />
 </a>
 
 </div>
 
+---
+
+複数の Valorant アカウントを暗号化して保存し、ボタンひとつで安全に切り替えられる Windows 向けデスクトップアプリです。ID・パスワードの打ち直しはもう必要ありません。
+
 ## 機能
 
-- **アカウント管理** — 複数の Valorant アカウントを暗号化して保存・管理
-- **自動ログイン** — Riot Client へのキーボードマクロによる自動ログイン / アカウント切り替え
+- **アカウント管理** — 複数アカウントを AES-256 で暗号化して保存・管理
+- **自動ログイン** — ID・パスワードの入力はキーボードマクロが代行
 - **ランク確認** — アカウントごとのランク・レベル・プレイヤーアイコンをまとめて表示
-- **一括更新** — セッション・ランクを複数アカウントまとめてバッチ更新
-- **ショップ閲覧** — デイリーショップ・ナイトマーケットの確認
-- **プレイヤー検索** — 戦績・MMR の検索
+- **一括更新** — セッションとランク情報を複数アカウントまとめて更新
+- **ショップ閲覧** — 各アカウントのデイリーショップ・ナイトマーケットをゲームを起動せずに確認
+- **プレイヤー検索** — 任意のプレイヤーの戦績・MMR をその場で検索
+- **Discord Rich Presence** — プレイ状況（キュー・スコア・使用エージェント）を Discord のステータスに表示
 
+## スクリーンショット
 
-## アカウント管理
+### アカウント管理
 
 <p align="center">
-  <img  alt="スクリーンショット 2026-07-02 174649" src="https://github.com/user-attachments/assets/71ba7aac-b635-46d7-a78c-12b3aa136834" width="45%"/>
-  <img  alt="スクリーンショット 2026-07-02 175106" src="https://github.com/user-attachments/assets/5f1f72a7-b4a1-4ba1-8483-fc4b9a013798" width="45%"/>
+  <img alt="アカウント一覧" src="https://github.com/user-attachments/assets/71ba7aac-b635-46d7-a78c-12b3aa136834" width="45%"/>
+  <img alt="アカウント詳細" src="https://github.com/user-attachments/assets/5f1f72a7-b4a1-4ba1-8483-fc4b9a013798" width="45%"/>
 </p>
 
-## ランク・データ表示
+### ショップ閲覧
+
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113" width="60%" />
+  <img alt="デイリーショップ・ナイトマーケット" src="https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113" width="60%" />
 </p>
 
----
-## 必要なもの
+## インストール
+
+1. [Releases](https://github.com/seizavl/HiyokoSwitcher/releases/latest) からインストーラーまたはポータブル版をダウンロード
+2. 起動して、設定画面で Riot Client のパスと [Henrik Dev API キー](https://docs.henrikdev.xyz/)（無料）を設定
+
+| 項目 | 要件 |
+|------|------|
+| OS | Windows 10 / 11 (x64) |
+| Henrik Dev API キー | ランク・戦績表示に使用（[取得はこちら](https://docs.henrikdev.xyz/)） |
+
+> ビルド済みの exe は単体で動作します。Python などの追加インストールは不要です。
+
+## 開発
+
+### 必要なもの
 
 | 項目 | バージョン |
 |------|-----------|
-| OS | Windows 10 / 11 (x64) |
 | Node.js | 16 以上 |
-| Python | 3.8 以上（開発時のみ。ビルド済み配布物には不要） |
-| Henrik Dev API キー | [取得はこちら](https://docs.henrikdev.xyz/) |
+| Python | 3.8 以上 |
 
----
-
-## 開発環境のセットアップ
+### セットアップ
 
 ```bash
 # 依存関係インストール
@@ -59,9 +83,7 @@ pip install -r backend/requirements.txt
 npm run dev
 ```
 
----
-
-## ビルド
+### ビルド
 
 ```bash
 # Windows インストーラー + ポータブル exe を生成
@@ -69,16 +91,13 @@ npm run make
 ```
 
 ビルドの流れ:
+
 1. Python バックエンドを PyInstaller で `backend.exe` にコンパイル
 2. TypeScript (Electron) をコンパイル
 3. React を本番ビルド
 4. electron-builder でパッケージング
 
 出力先: `release/`
-
-> Python のインストールが不要な単体動作する exe が生成されます。
-
----
 
 ## 技術スタック
 
@@ -90,8 +109,7 @@ npm run make
 | 自動化 | pyautogui / pynput / pyperclip / pygetwindow |
 | 配布 | electron-builder / PyInstaller |
 | 外部 API | Henrik Dev Valorant API |
-
----
+| Web サイト | Vite / React / GSAP / three.js（[website/](website/)） |
 
 ## プロジェクト構成
 
@@ -102,14 +120,14 @@ HiyokoSwitcher/
 │   └── pages/          # 各ページ (Account / Rank / Search / Setting など)
 ├── electron/           # Electron メインプロセス
 │   ├── main.ts         # IPC ハンドラー・YAML 管理・ショップ取得
+│   ├── discordRpc.ts   # Discord Rich Presence クライアント
 │   └── preload.ts      # IPC ブリッジ
 ├── backend/            # Python FastAPI バックエンド
 │   └── main.py         # 自動ログインエンドポイント
+├── website/            # ランディングページ（GitHub Pages に自動デプロイ）
 └── public/             # 静的アセット・アイコン
 ```
 
----
-
 ## データの保存場所
 
-アカウント情報・設定は実行ファイルと同じディレクトリの `data/` 以下に保存されます。パスワードは AES-256-CBC で暗号化されます。
+アカウント情報・設定は実行ファイルと同じディレクトリの `data/` 以下に保存されます。パスワードは AES-256-CBC で暗号化され、外部に送信されることはありません。
