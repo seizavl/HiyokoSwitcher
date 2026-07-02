@@ -153,10 +153,30 @@
 
 /* ===== Hero ===== */
 .hero {
+  position: relative;
   max-width: 880px;
   margin: 0 auto;
   padding: 108px 24px 0;
   text-align: center;
+}
+
+/* 3D シーン（ヒーロー背景）。中央 880px の .hero から 100vw に広げて敷く */
+.hero-canvas {
+  position: absolute;
+  top: -140px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100vw;
+  height: calc(100% + 260px);
+  z-index: -1;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, transparent 0, #000 90px, #000 78%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 90px, #000 78%, transparent);
+}
+
+.hero-canvas canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .hero-badge {
@@ -244,6 +264,49 @@
   border: 1px solid var(--border-strong);
   background: var(--bg-elevated);
   box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.6);
+}
+
+/* ===== 3D チルト ===== */
+.tilt {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  perspective: 1100px;
+}
+
+.tilt-inner {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transform: rotateX(var(--rx)) rotateY(var(--ry));
+  transform-style: preserve-3d;
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+}
+
+/* カーソルに追従する光沢 */
+.tilt-inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-lg);
+  background: radial-gradient(
+    480px circle at var(--mx) var(--my),
+    rgba(255, 255, 255, 0.08),
+    transparent 55%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt-inner {
+    transform: none !important;
+    transition: none;
+  }
+  .tilt-inner::after {
+    display: none;
+  }
 }
 
 .window-bar {

@@ -1,5 +1,7 @@
 import './App.css';
+import { lazy, Suspense } from 'react';
 import { useReveal } from './useReveal';
+import { Tilt } from './Tilt';
 import {
   IconShield,
   IconZap,
@@ -11,6 +13,11 @@ import {
   IconGithub,
   IconArrowRight,
 } from './Icons';
+
+// three.js を含む 3D シーンは重いので遅延読み込みして初期表示を妨げない。
+// モバイルではチャンク自体をダウンロードさせない（バッテリー・通信量対策）。
+const HeroScene = lazy(() => import('./three/HeroScene'));
+const show3D = window.matchMedia('(min-width: 769px)').matches;
 
 const REPO = 'seizavl/HiyokoSwitcher';
 const LATEST_RELEASE_URL = `https://github.com/${REPO}/releases/latest`;
@@ -71,6 +78,11 @@ function App() {
       </nav>
 
       <header className="hero" id="top">
+        {show3D && (
+          <Suspense fallback={null}>
+            <HeroScene />
+          </Suspense>
+        )}
         <div className="hero-badge reveal">
           <span className="dot" />
           Windows 10 / 11 対応 &middot; 無料
@@ -98,19 +110,21 @@ function App() {
 
         <div className="hero-mockup reveal">
           <div className="mockup-glow" aria-hidden="true" />
-          <div className="window">
-            <div className="window-bar">
-              <span className="window-dot dot-red" />
-              <span className="window-dot dot-yellow" />
-              <span className="window-dot dot-green" />
-              <span className="window-title">HiyokoSwitcher</span>
+          <Tilt max={6}>
+            <div className="window">
+              <div className="window-bar">
+                <span className="window-dot dot-red" />
+                <span className="window-dot dot-yellow" />
+                <span className="window-dot dot-green" />
+                <span className="window-title">HiyokoSwitcher</span>
+              </div>
+              <img
+                className="window-img"
+                src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7"
+                alt="HiyokoSwitcher アカウント管理画面"
+              />
             </div>
-            <img
-              className="window-img"
-              src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7"
-              alt="HiyokoSwitcher アカウント管理画面"
-            />
-          </div>
+          </Tilt>
         </div>
       </header>
 
@@ -148,14 +162,16 @@ function App() {
                   <p className="showcase-desc">{s.desc}</p>
                 </div>
                 <div className="showcase-media">
-                  <div className="window window-sm">
-                    <div className="window-bar">
-                      <span className="window-dot dot-red" />
-                      <span className="window-dot dot-yellow" />
-                      <span className="window-dot dot-green" />
+                  <Tilt max={9}>
+                    <div className="window window-sm">
+                      <div className="window-bar">
+                        <span className="window-dot dot-red" />
+                        <span className="window-dot dot-yellow" />
+                        <span className="window-dot dot-green" />
+                      </div>
+                      <img className="window-img" src={s.img} alt={s.title} loading="lazy" />
                     </div>
-                    <img className="window-img" src={s.img} alt={s.title} loading="lazy" />
-                  </div>
+                  </Tilt>
                 </div>
               </div>
             ))}
