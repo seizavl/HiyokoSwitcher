@@ -12,9 +12,13 @@ let discordRpc: DiscordRPC | null = null;
 let discordPresenceTimer: NodeJS.Timeout | null = null;
 const discordLaunchTs = Date.now();
 
-// プレゼンスに表示するボタン（押すと Discord サーバーに飛ぶ）
+// プレゼンスに表示するボタン（押すと Discord サーバー / 公式サイトに飛ぶ）
 const DISCORD_SERVER_INVITE = 'https://discord.gg/UTN5eewkb5';
-const DISCORD_BUTTONS = [{ label: 'Discord サーバーに参加', url: DISCORD_SERVER_INVITE }];
+const DISCORD_WEBSITE_URL = 'https://seizavl.github.io/HiyokoSwitcher/';
+const DISCORD_BUTTONS = [
+  { label: 'Discord サーバーに参加', url: DISCORD_SERVER_INVITE },
+  { label: '公式サイトを見る', url: DISCORD_WEBSITE_URL },
+];
 
 // アプリ起動中（ゲーム外）のデフォルト表示
 const DISCORD_IDLE_ACTIVITY = {
