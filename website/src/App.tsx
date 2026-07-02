@@ -112,12 +112,6 @@ function App() {
           <div className="mockup-glow" aria-hidden="true" />
           <Tilt max={6}>
             <div className="window">
-              <div className="window-bar">
-                <span className="window-dot dot-red" />
-                <span className="window-dot dot-yellow" />
-                <span className="window-dot dot-green" />
-                <span className="window-title">HiyokoSwitcher</span>
-              </div>
               <img
                 className="window-img"
                 src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7"
@@ -164,11 +158,6 @@ function App() {
                 <div className="showcase-media">
                   <Tilt max={9}>
                     <div className="window window-sm">
-                      <div className="window-bar">
-                        <span className="window-dot dot-red" />
-                        <span className="window-dot dot-yellow" />
-                        <span className="window-dot dot-green" />
-                      </div>
                       <img className="window-img" src={s.img} alt={s.title} loading="lazy" />
                     </div>
                   </Tilt>
