@@ -77,7 +77,7 @@ function ParticleField({ count = 2200 }: { count?: number }) {
       </bufferGeometry>
       <pointsMaterial
         map={texture}
-        color="#7d95ff"
+        color="#ffdf9e"
         size={0.06}
         sizeAttenuation
         transparent

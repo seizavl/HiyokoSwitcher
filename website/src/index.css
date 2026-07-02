@@ -9,10 +9,10 @@
   --text-dim: #6f7480;
   --text-h: #f5f6f8;
 
-  --accent: #4a6dff;
-  --accent-2: #8b5cf6;
-  --accent-soft: rgba(74, 109, 255, 0.12);
-  --accent-border: rgba(74, 109, 255, 0.35);
+  --accent: #ffc233;
+  --accent-2: #ff9f1c;
+  --accent-soft: rgba(255, 194, 51, 0.1);
+  --accent-border: rgba(255, 194, 51, 0.32);
 
   --radius-lg: 20px;
   --radius-md: 14px;
@@ -82,7 +82,7 @@ button {
 
 ::selection {
   background: var(--accent);
-  color: #fff;
+  color: #201500;
 }
 
 .reveal {

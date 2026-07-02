@@ -10,9 +10,9 @@
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(600px circle at 15% 8%, rgba(74, 109, 255, 0.16), transparent 60%),
-    radial-gradient(700px circle at 85% 0%, rgba(139, 92, 246, 0.14), transparent 60%),
-    radial-gradient(900px circle at 50% 100%, rgba(74, 109, 255, 0.08), transparent 60%),
+    radial-gradient(600px circle at 15% 8%, rgba(255, 194, 51, 0.09), transparent 60%),
+    radial-gradient(700px circle at 85% 0%, rgba(255, 159, 28, 0.07), transparent 60%),
+    radial-gradient(900px circle at 50% 100%, rgba(255, 194, 51, 0.05), transparent 60%),
     var(--bg);
 }
 
@@ -115,13 +115,13 @@
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #fff;
-  box-shadow: 0 8px 24px -8px rgba(74, 109, 255, 0.6);
+  color: #201500;
+  box-shadow: 0 8px 24px -8px rgba(255, 178, 32, 0.45);
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 14px 32px -10px rgba(74, 109, 255, 0.75);
+  box-shadow: 0 14px 32px -10px rgba(255, 178, 32, 0.6);
 }
 
 .btn-secondary {
@@ -187,7 +187,7 @@
   border-radius: 999px;
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
-  color: #b6c4ff;
+  color: #ffd97a;
   font-size: 13px;
   font-weight: 600;
 }
@@ -220,7 +220,7 @@
 }
 
 .gradient-text {
-  background: linear-gradient(120deg, #7d95ff 0%, var(--accent) 40%, var(--accent-2) 100%);
+  background: linear-gradient(120deg, #ffe38a 0%, var(--accent) 45%, var(--accent-2) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -253,7 +253,7 @@
 .mockup-glow {
   position: absolute;
   inset: -10% -6% -6%;
-  background: radial-gradient(60% 60% at 50% 30%, rgba(74, 109, 255, 0.28), transparent 70%);
+  background: radial-gradient(60% 60% at 50% 30%, rgba(255, 178, 32, 0.16), transparent 70%);
   filter: blur(20px);
   z-index: -1;
 }
@@ -399,7 +399,7 @@
   height: 44px;
   border-radius: 12px;
   background: var(--accent-soft);
-  color: #9db2ff;
+  color: #ffd06e;
   margin-bottom: 18px;
 }
 
@@ -499,7 +499,7 @@
 .cta-glow {
   position: absolute;
   inset: -30% -10%;
-  background: radial-gradient(50% 60% at 50% 0%, rgba(74, 109, 255, 0.25), transparent 70%);
+  background: radial-gradient(50% 60% at 50% 0%, rgba(255, 178, 32, 0.14), transparent 70%);
   z-index: 0;
 }
 
