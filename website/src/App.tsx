@@ -1,6 +1,6 @@
 import './App.css';
 import { lazy, Suspense } from 'react';
-import { useReveal } from './useReveal';
+import { useAnimations } from './useAnimations';
 import { Tilt } from './Tilt';
 import {
   IconShield,
@@ -25,37 +25,62 @@ const REPO_URL = `https://github.com/${REPO}`;
 const BASE = '/HiyokoSwitcher';
 
 const FEATURES = [
-  { icon: IconShield, title: 'アカウント管理', desc: '複数の Valorant アカウントを AES-256 で暗号化して安全に保存・管理' },
-  { icon: IconZap, title: '自動ログイン', desc: 'Riot Client へのキーボードマクロでワンクリック自動ログイン・切り替え' },
-  { icon: IconTrendingUp, title: 'ランク確認', desc: 'アカウントごとのランク・レベル・プレイヤーアイコンをまとめて表示' },
-  { icon: IconRefresh, title: '一括更新', desc: 'セッション・ランク情報を複数アカウントまとめてバッチ更新' },
-  { icon: IconBag, title: 'ショップ閲覧', desc: 'デイリーショップ・ナイトマーケットのラインナップを一目で確認' },
-  { icon: IconSearch, title: 'プレイヤー検索', desc: '任意のプレイヤーの戦績・MMR をその場で検索' },
+  { icon: IconShield, title: 'アカウント管理', desc: ['複数の Valorant アカウントを', 'AES-256 で暗号化して保存・管理'] },
+  { icon: IconZap, title: '自動ログイン', desc: ['ID・パスワードの入力は', 'キーボードマクロが代行'] },
+  { icon: IconTrendingUp, title: 'ランク確認', desc: ['アカウントごとのランク・レベルを', 'まとめて表示'] },
+  { icon: IconRefresh, title: '一括更新', desc: ['セッションとランク情報を', '複数アカウントまとめて更新'] },
+  { icon: IconBag, title: 'ショップ閲覧', desc: ['デイリーショップと', 'ナイトマーケットを起動せずに確認'] },
+  { icon: IconSearch, title: 'プレイヤー検索', desc: ['任意のプレイヤーの戦績・MMR を', 'その場で検索'] },
 ];
 
 const SHOWCASE = [
   {
-    tag: 'ACCOUNT',
-    title: 'すべてのアカウントを、ひとつの画面に。',
-    desc: '登録した Valorant アカウントをカード一覧で管理。ランク・レベル・アイコンが並び、切り替えたいアカウントをワンクリックで選ぶだけ。',
+    tag: 'アカウント一覧',
+    title: '登録したアカウントがひと目でわかる',
+    desc: [
+      '保存したアカウントは',
+      'ランク・レベル・アイコン付きで一覧表示。',
+      '切り替えたいアカウントを選ぶだけで、',
+      'あとはアプリがやってくれます。',
+    ],
     img: 'https://github.com/user-attachments/assets/71ba7aac-b635-46d7-a78c-12b3aa136834',
   },
   {
-    tag: 'DETAIL',
-    title: '切り替えも、ログインも、自動で。',
-    desc: 'Riot Client のセッションをジャンクション方式で管理し、キーボードマクロが自動でログイン操作を代行。待ち時間はほぼゼロに。',
+    tag: '自動ログイン',
+    title: 'ログイン操作はマクロにおまかせ',
+    desc: [
+      'Riot Client のセッションを',
+      'ジャンクション方式で管理し、',
+      'ID とパスワードの入力は',
+      'キーボードマクロが代行。',
+      '切り替えのたびに手打ちする必要はありません。',
+    ],
     img: 'https://github.com/user-attachments/assets/5f1f72a7-b4a1-4ba1-8483-fc4b9a013798',
   },
   {
-    tag: 'RANK',
-    title: 'データはいつも最新。',
-    desc: 'Henrik Dev API と連携し、ランク・戦績・MMR を自動取得。複数アカウントをまとめてバッチ更新できます。',
+    tag: 'ランク更新',
+    title: 'ランクも戦績も自動で最新に',
+    desc: [
+      'Henrik Dev API と連携して、',
+      'ランク・レベル・戦績を自動取得。',
+      '複数アカウントの一括更新にも対応しています。',
+    ],
     img: 'https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113',
   },
 ];
 
+const Phrases = ({ items }: { items: string[] }) => (
+  <>
+    {items.map((p) => (
+      <span className="phrase" key={p}>
+        {p}
+      </span>
+    ))}
+  </>
+);
+
 function App() {
-  useReveal();
+  useAnimations();
 
   return (
     <div className="page">
@@ -83,21 +108,25 @@ function App() {
             <HeroScene />
           </Suspense>
         )}
-        <div className="hero-badge reveal">
-          <span className="dot" />
-          Windows 10 / 11 対応 &middot; 無料
-        </div>
-        <h1 className="hero-title reveal">
-          複数の Valorant アカウントを、
-          <br />
-          <span className="gradient-text">もっとスマートに。</span>
+        <h1 className="hero-title">
+          <span className="line-mask">
+            <span className="line">Valorant のアカウント切り替えを、</span>
+          </span>
+          <span className="line-mask">
+            <span className="line accent-text">ワンクリックに。</span>
+          </span>
         </h1>
-        <p className="hero-subtitle reveal">
-          アカウントの管理・ログイン・切り替えを自動化する Windows デスクトップアプリ。
-          <br />
-          暗号化保存で安全に、ワンクリックでスムーズに。
+        <p className="hero-subtitle">
+          <Phrases
+            items={[
+              'ID・パスワードの打ち直しは、もう不要。',
+              '暗号化して保存したアカウントに',
+              'ボタンひとつでログインできる、',
+              'Windows 向けのデスクトップアプリです。',
+            ]}
+          />
         </p>
-        <div className="hero-actions reveal">
+        <div className="hero-actions">
           <a className="btn btn-primary btn-lg" href={LATEST_RELEASE_URL}>
             <IconDownload />
             無料でダウンロード
@@ -107,8 +136,9 @@ function App() {
             GitHub で見る
           </a>
         </div>
+        <p className="hero-meta">Windows 10 / 11 (x64)・無料・オープンソース</p>
 
-        <div className="hero-mockup reveal">
+        <div className="hero-mockup">
           <div className="mockup-glow" aria-hidden="true" />
           <Tilt max={6}>
             <div className="window">
@@ -124,36 +154,51 @@ function App() {
 
       <main>
         <section className="section" id="features">
-          <div className="section-head reveal">
-            <span className="eyebrow">FEATURES</span>
-            <h2 className="section-title">必要な機能を、ひとつのアプリに。</h2>
-            <p className="section-desc">アカウント管理からショップ確認まで、Valorant を遊ぶ上で欲しい機能を揃えました。</p>
+          <div className="section-head">
+            <div className="section-label">
+              <span className="sec-num">01</span>機能
+            </div>
+            <h2 className="section-title">できること</h2>
+            <p className="section-desc">
+              <Phrases
+                items={[
+                  'アカウントの保存からショップの確認まで、',
+                  '日常的に使う機能をまとめています。',
+                ]}
+              />
+            </p>
           </div>
           <div className="feature-grid">
-            {FEATURES.map((f, i) => (
-              <div className="feature-card reveal" key={f.title} style={{ transitionDelay: `${(i % 3) * 60}ms` }}>
-                <div className="feature-icon">
-                  <f.icon />
+            {FEATURES.map((f) => (
+              <div className="feature-card" key={f.title}>
+                <div className="feature-head">
+                  <f.icon className="feature-ic" />
+                  <h3 className="feature-title">{f.title}</h3>
                 </div>
-                <h3 className="feature-title">{f.title}</h3>
-                <p className="feature-desc">{f.desc}</p>
+                <p className="feature-desc">
+                  <Phrases items={f.desc} />
+                </p>
               </div>
             ))}
           </div>
         </section>
 
         <section className="section showcase" id="showcase">
-          <div className="section-head reveal">
-            <span className="eyebrow">PREVIEW</span>
-            <h2 className="section-title">実際の画面を見てみる</h2>
+          <div className="section-head">
+            <div className="section-label">
+              <span className="sec-num">02</span>プレビュー
+            </div>
+            <h2 className="section-title">画面はこんな感じ</h2>
           </div>
           <div className="showcase-list">
             {SHOWCASE.map((s, i) => (
-              <div className={`showcase-row reveal ${i % 2 === 1 ? 'reverse' : ''}`} key={s.tag}>
+              <div className={`showcase-row ${i % 2 === 1 ? 'reverse' : ''}`} key={s.tag}>
                 <div className="showcase-text">
                   <span className="showcase-tag">{s.tag}</span>
                   <h3 className="showcase-title">{s.title}</h3>
-                  <p className="showcase-desc">{s.desc}</p>
+                  <p className="showcase-desc">
+                    <Phrases items={s.desc} />
+                  </p>
                 </div>
                 <div className="showcase-media">
                   <Tilt max={9}>
@@ -167,13 +212,20 @@ function App() {
           </div>
         </section>
 
-        <section className="section cta-section reveal">
+        <section className="section cta-section">
           <div className="cta-panel">
             <div className="cta-glow" aria-hidden="true" />
-            <h2 className="cta-title">今すぐ、快適なアカウント切り替えを。</h2>
+            <h2 className="cta-title">手打ちログインは、今日でおしまい。</h2>
             <p className="cta-desc">
-              Windows 10 / 11 (x64) で今すぐ利用できます。Henrik Dev API キーの取得は
-              <a href="https://docs.henrikdev.xyz/" target="_blank" rel="noreferrer"> こちら</a>。
+              <Phrases
+                items={[
+                  'Windows 10 / 11 (x64) 対応・無料・オープンソース。',
+                  'ランク表示には Henrik Dev API キー（無料）を使います。',
+                ]}
+              />
+              <a href="https://docs.henrikdev.xyz/" target="_blank" rel="noreferrer">
+                取得はこちら
+              </a>
             </p>
             <div className="cta-actions">
               <a className="btn btn-primary btn-lg" href={LATEST_RELEASE_URL}>

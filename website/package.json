@@ -11,6 +11,7 @@
   "dependencies": {
     "@react-three/fiber": "^9.6.1",
     "@types/three": "^0.185.0",
+    "gsap": "^3.15.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "three": "^0.185.1"
