@@ -38,13 +38,13 @@ const SHOWCASE = [
     tag: 'ACCOUNT',
     title: 'すべてのアカウントを、ひとつの画面に。',
     desc: '登録した Valorant アカウントをカード一覧で管理。ランク・レベル・アイコンが並び、切り替えたいアカウントをワンクリックで選ぶだけ。',
-    img: 'https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7',
+    img: 'https://github.com/user-attachments/assets/71ba7aac-b635-46d7-a78c-12b3aa136834',
   },
   {
     tag: 'DETAIL',
     title: '切り替えも、ログインも、自動で。',
     desc: 'Riot Client のセッションをジャンクション方式で管理し、キーボードマクロが自動でログイン操作を代行。待ち時間はほぼゼロに。',
-    img: 'https://github.com/user-attachments/assets/104833ab-ca0e-4a68-8252-d78a6ca481ce',
+    img: 'https://github.com/user-attachments/assets/5f1f72a7-b4a1-4ba1-8483-fc4b9a013798',
   },
   {
     tag: 'RANK',
@@ -114,7 +114,7 @@ function App() {
             <div className="window">
               <img
                 className="window-img"
-                src="https://github.com/user-attachments/assets/0b4a7674-5048-4b01-9648-1a47e42321e7"
+                src="https://github.com/user-attachments/assets/71ba7aac-b635-46d7-a78c-12b3aa136834"
                 alt="HiyokoSwitcher アカウント管理画面"
               />
             </div>
