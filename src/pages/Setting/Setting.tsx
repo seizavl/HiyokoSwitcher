@@ -38,6 +38,7 @@ const Setting: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [autoCheckValorant, setAutoCheckValorant] = useState(false);
   const [autoCheckApp, setAutoCheckApp] = useState(false);
+  const [discordRpc, setDiscordRpc] = useState(true);
 
   useEffect(() => {
     loadSettings();
@@ -57,6 +58,7 @@ const Setting: React.FC = () => {
       });
       if (settings.autoCheckValorant !== undefined) setAutoCheckValorant(settings.autoCheckValorant);
       if (settings.autoCheckApp !== undefined) setAutoCheckApp(settings.autoCheckApp);
+      if (settings.discordRpc !== undefined) setDiscordRpc(settings.discordRpc);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
@@ -81,6 +83,7 @@ const Setting: React.FC = () => {
         loginClickPositions: normalizedClickPositions,
         autoCheckValorant,
         autoCheckApp,
+        discordRpc,
       });
       setLaunchSecond(String(normalizedLaunchSecond));
       setLoginClickPositions({
@@ -108,6 +111,7 @@ const Setting: React.FC = () => {
     setApiKey('');
     setAutoCheckValorant(false);
     setAutoCheckApp(false);
+    setDiscordRpc(true);
     addAlert('success', 'Settings reset!', 'Your settings have been reset to default values.');
   };
 
@@ -172,6 +176,21 @@ const Setting: React.FC = () => {
                   />
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Discord 連携</label>
+            <div className="checkbox-group">
+              <label className="checkbox-item-text">
+                <input
+                  type="checkbox"
+                  className="checkbox-hidden"
+                  checked={discordRpc}
+                  onChange={(e) => setDiscordRpc(e.target.checked)}
+                />
+                <span className="checkbox-label">Discord にプレイ状況を表示する</span>
+              </label>
             </div>
           </div>
         </div>

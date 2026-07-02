@@ -4,6 +4,31 @@ import fs from 'fs';
 import https from 'https';
 import { ChildProcess, spawn } from 'child_process';
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import { DiscordRPC } from './discordRpc';
+
+// Discord Rich Presence
+const DISCORD_APP_ID = '1521778651366948894';
+let discordRpc: DiscordRPC | null = null;
+let discordPresenceTimer: NodeJS.Timeout | null = null;
+const discordLaunchTs = Date.now();
+
+// プレゼンスに表示するボタン（押すと Discord サーバーに飛ぶ）
+const DISCORD_SERVER_INVITE = 'https://discord.gg/UTN5eewkb5';
+const DISCORD_BUTTONS = [{ label: 'Discord サーバーに参加', url: DISCORD_SERVER_INVITE }];
+
+// アプリ起動中（ゲーム外）のデフォルト表示
+const DISCORD_IDLE_ACTIVITY = {
+  startTimestamp: discordLaunchTs,
+  largeImageKey: 'logo',
+  buttons: DISCORD_BUTTONS,
+};
+
+const startDiscordPresence = (): void => {
+  if (discordRpc) return;
+  discordRpc = new DiscordRPC(DISCORD_APP_ID);
+  // 接続だけ行い、表示内容は更新ループ（updateDiscordPresence）が設定する
+  discordRpc.start(null);
+};
 
 const ENCRYPT_KEY = scryptSync('valorant-manager-secret', 'salt-v1', 32);
 
@@ -607,6 +632,8 @@ app.whenReady().then(() => {
   // 設定保存
   ipcMain.handle('settings:save', (_event, settings) => {
     saveSettings(settingsFilePath, settings);
+    // Discord RPC の有効/無効を即時反映（updateDiscordPresence は後方で定義）
+    updateDiscordPresence();
     return true;
   });
 
@@ -2076,6 +2103,247 @@ app.whenReady().then(() => {
     }
   });
 
+  // ============================
+  // Discord Rich Presence: ゲーム状態連動
+  // ============================
+  // 設計: VALORANT のローカル API `chat/v4/presences` にある自分の private プレゼンス
+  // （base64 JSON）から sessionLoopState / queueId / スコア / マップ / パーティ人数を読み、
+  // 使用エージェントだけ core-game から補って Discord のアクティビティを更新する。
+  // ゲーム未起動時はアプリ起動中の表示（DISCORD_IDLE_ACTIVITY）に戻す。
+
+  const DISCORD_QUEUE_NAMES: Record<string, string> = {
+    competitive: 'Competitive',
+    unrated: 'Unrated',
+    swiftplay: 'Swiftplay',
+    spikerush: 'Spike Rush',
+    deathmatch: 'Deathmatch',
+    ggteam: 'Escalation',
+    onefa: 'Replication',
+    hurm: 'Team Deathmatch',
+    newmap: 'New Map',
+    snowball: 'Snowball Fight',
+    '': 'Custom Game',
+  };
+
+  // マップ path（例 /Game/Maps/Ascent/Ascent）→ 表示名・スプラッシュ画像
+  let liveMapCache: Map<string, { displayName: string; splash: string }> | null = null;
+  const ensureMapCache = async (): Promise<void> => {
+    if (liveMapCache) return;
+    const res = await shopHttpsRequest('https://valorant-api.com/v1/maps', {});
+    const data = JSON.parse(res.body);
+    liveMapCache = new Map();
+    for (const m of (data.data || [])) {
+      if (m.mapUrl) {
+        liveMapCache.set(m.mapUrl.toLowerCase(), {
+          displayName: m.displayName || '',
+          splash: m.splash || m.listViewIcon || '',
+        });
+      }
+    }
+  };
+
+  const ensureLiveAgentCache = async (): Promise<void> => {
+    if (liveAgentCache) return;
+    const res = await shopHttpsRequest('https://valorant-api.com/v1/agents?isPlayableCharacter=true', {});
+    const data = JSON.parse(res.body);
+    liveAgentCache = new Map();
+    for (const agent of (data.data || [])) {
+      liveAgentCache.set(agent.uuid.toLowerCase(), {
+        displayName: agent.displayName,
+        displayIcon: agent.displayIconSmall || agent.displayIcon,
+      });
+    }
+  };
+
+  // presences 配列から自分（valorant）の private プレゼンスを復号して返す
+  const decodeSelfPresence = (presences: any[], puuid: string): any | null => {
+    for (const p of presences) {
+      if (p.puuid !== puuid || !p.private) continue;
+      try {
+        const decoded = JSON.parse(Buffer.from(p.private, 'base64').toString('utf8'));
+        if (decoded && typeof decoded.sessionLoopState === 'string') return decoded;
+      } catch {}
+    }
+    return null;
+  };
+
+  // core-game から自分の使用エージェント（名前・アイコン）を取得する
+  const fetchSelfAgent = async (
+    puuid: string,
+    riotHeaders: Record<string, string>,
+    preferRegion: string
+  ): Promise<{ name: string; icon: string } | null> => {
+    await ensureLiveAgentCache();
+    const regions = [...new Set([preferRegion, cachedRegion, 'jp', 'ap', 'kr', 'na', 'eu'])];
+    for (const region of regions) {
+      const shard = SHARD_MAP[region] || 'ap';
+      try {
+        const r = await shopHttpsRequest(
+          `https://glz-${region}-1.${shard}.a.pvp.net/core-game/v1/players/${puuid}`,
+          { headers: riotHeaders }
+        );
+        if (r.statusCode !== 200) continue;
+        const matchId = JSON.parse(r.body).MatchID;
+        cachedRegion = region;
+        cachedShard = shard;
+        const mr = await shopHttpsRequest(
+          `https://glz-${region}-1.${shard}.a.pvp.net/core-game/v1/matches/${matchId}`,
+          { headers: riotHeaders }
+        );
+        if (mr.statusCode !== 200) return null;
+        const md = JSON.parse(mr.body);
+        const self = (md.Players || []).find((p: any) => p.Subject === puuid);
+        const agentId = (self?.CharacterID || '').toLowerCase();
+        const info = liveAgentCache?.get(agentId);
+        return info ? { name: info.displayName, icon: info.displayIcon } : null;
+      } catch {}
+    }
+    return null;
+  };
+
+  // 現在のゲーム状態からアクティビティを組み立てて Discord に反映する
+  let discordMatchStartTs: number | null = null;
+  let discordUpdating = false;
+
+  const updateDiscordPresence = async (): Promise<void> => {
+    if (!discordRpc || discordUpdating) return;
+
+    // 設定で無効化されていればプレゼンスを消して何もしない（既定は有効）
+    if (loadSettings(settingsFilePath).discordRpc === false) {
+      discordMatchStartTs = null;
+      discordRpc.setActivity(null);
+      return;
+    }
+
+    discordUpdating = true;
+    try {
+      const lockfile = getLockfile();
+      if (!lockfile) {
+        discordMatchStartTs = null;
+        discordRpc.setActivity(DISCORD_IDLE_ACTIVITY);
+        return;
+      }
+      const localAuth = `Basic ${Buffer.from(`riot:${lockfile.password}`).toString('base64')}`;
+
+      let tokenData: any;
+      try {
+        const tokenRes = await localApiRequest(
+          `https://127.0.0.1:${lockfile.port}/entitlements/v1/token`,
+          { headers: { Authorization: localAuth } }
+        );
+        tokenData = JSON.parse(tokenRes.body);
+      } catch {
+        discordMatchStartTs = null;
+        discordRpc.setActivity(DISCORD_IDLE_ACTIVITY);
+        return;
+      }
+
+      const accessToken: string = tokenData?.accessToken;
+      const entitlementsToken: string = tokenData?.token;
+      const puuid: string = tokenData?.subject;
+      if (!accessToken || !puuid) {
+        discordMatchStartTs = null;
+        discordRpc.setActivity(DISCORD_IDLE_ACTIVITY);
+        return;
+      }
+
+      // 自分の private プレゼンス取得
+      let priv: any = null;
+      try {
+        const presRes = await localApiRequest(
+          `https://127.0.0.1:${lockfile.port}/chat/v4/presences`,
+          { headers: { Authorization: localAuth } }
+        );
+        const presences = JSON.parse(presRes.body).presences || [];
+        priv = decodeSelfPresence(presences, puuid);
+      } catch {}
+
+      if (!priv) {
+        discordMatchStartTs = null;
+        discordRpc.setActivity(DISCORD_IDLE_ACTIVITY);
+        return;
+      }
+
+      const loopState: string = priv.sessionLoopState; // MENUS | PREGAME | INGAME
+      const queueName = DISCORD_QUEUE_NAMES[priv.queueId ?? ''] ?? (priv.queueId || 'Custom Game');
+      const partySize = priv.partySize || 1;
+      const maxPartySize = priv.maxPartySize || 5;
+      const partyText = `Party ${partySize}/${maxPartySize}`;
+
+      // メニュー: ロビー表示（試合タイマーはリセット）
+      if (loopState === 'MENUS') {
+        discordMatchStartTs = null;
+        discordRpc.setActivity({
+          details: 'ロビー',
+          state: partyText,
+          startTimestamp: discordLaunchTs,
+          largeImageKey: 'logo',
+          buttons: DISCORD_BUTTONS,
+        });
+        return;
+      }
+
+      // PREGAME/INGAME に入ったら試合タイマーを開始（またがって保持）
+      if (discordMatchStartTs === null) discordMatchStartTs = Date.now();
+
+      const riotHeaders: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        'X-Riot-Entitlements-JWT': entitlementsToken,
+        'X-Riot-ClientPlatform': LIVE_CLIENT_PLATFORM,
+        'X-Riot-ClientVersion': cachedClientVersion,
+      };
+
+      // マップ画像
+      let largeImageKey = 'logo';
+      let largeImageText: string | undefined;
+      const mapPath: string = priv.matchMap || priv.partyOwnerMatchMap || '';
+      if (mapPath) {
+        try {
+          await ensureMapCache();
+          const mapInfo = liveMapCache?.get(mapPath.toLowerCase());
+          if (mapInfo?.splash) {
+            largeImageKey = mapInfo.splash;
+            largeImageText = mapInfo.displayName;
+          }
+        } catch {}
+      }
+
+      // 使用エージェント（アイコン = 小画像）
+      const agent = await fetchSelfAgent(puuid, riotHeaders, cachedRegion).catch(() => null);
+
+      let details: string;
+      if (loopState === 'INGAME') {
+        const ally = priv.partyOwnerMatchScoreAllyTeam ?? 0;
+        const enemy = priv.partyOwnerMatchScoreEnemyTeam ?? 0;
+        details = `${queueName}: ${ally} - ${enemy}`;
+      } else {
+        details = `${queueName} - エージェント選択`;
+      }
+
+      const state = agent ? `${agent.name} | ${partyText}` : partyText;
+
+      discordRpc.setActivity({
+        details,
+        state,
+        startTimestamp: discordMatchStartTs,
+        largeImageKey,
+        largeImageText,
+        smallImageKey: agent?.icon,
+        smallImageText: agent?.name,
+        buttons: DISCORD_BUTTONS,
+      });
+    } catch (error: any) {
+      console.error('[DiscordRPC]', error?.message || error);
+    } finally {
+      discordUpdating = false;
+    }
+  };
+
+  startDiscordPresence(); // Discord Rich Presence を開始（Discord 未起動でも安全）
+  // 10秒ごとにゲーム状態を反映
+  discordPresenceTimer = setInterval(() => { updateDiscordPresence(); }, 10000);
+  updateDiscordPresence();
+
   startPythonBackend(); // await しない: ウィンドウ表示と並行して起動
   createWindow();
 });
@@ -2083,6 +2351,12 @@ app.whenReady().then(() => {
 app.on('before-quit', (): void => {
   isQuitting = true;
   stopPythonBackend();
+  if (discordPresenceTimer) {
+    clearInterval(discordPresenceTimer);
+    discordPresenceTimer = null;
+  }
+  discordRpc?.destroy();
+  discordRpc = null;
 });
 
 app.on('window-all-closed', (): void => {
