@@ -58,12 +58,13 @@ const SHOWCASE = [
     img: 'https://github.com/user-attachments/assets/5f1f72a7-b4a1-4ba1-8483-fc4b9a013798',
   },
   {
-    tag: 'ランク更新',
-    title: 'ランクも戦績も自動で最新に',
+    tag: 'ショップ閲覧',
+    title: 'ゲームを起動せずにショップを確認',
     desc: [
-      'Henrik Dev API と連携して、',
-      'ランク・レベル・戦績を自動取得。',
-      '複数アカウントの一括更新にも対応しています。',
+      '各アカウントのデイリーショップと',
+      'ナイトマーケットをアプリ内で表示。',
+      'どのアカウントに欲しいスキンが来ているか、',
+      'すぐにチェックできます。',
     ],
     img: 'https://github.com/user-attachments/assets/a6211a56-bab3-4a26-8714-addaa6391113',
   },
