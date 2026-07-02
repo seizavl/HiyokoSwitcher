@@ -1,0 +1,46 @@
+:root {
+  --bg: #0d0e10;
+  --bg-elevated: #17181b;
+  --border: #2a2c30;
+  --text: #c9cbcf;
+  --text-h: #f3f4f6;
+  --accent: #466bff;
+  --accent-hover: #5c7dff;
+
+  font: 16px/1.6 system-ui, 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text-h);
+  font-weight: 600;
+  margin: 0;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+table {
+  border-collapse: collapse;
+}

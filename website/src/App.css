@@ -1,0 +1,154 @@
+.page {
+  max-width: 1024px;
+  margin: 0 auto;
+  padding: 0 24px 64px;
+}
+
+.hero {
+  text-align: center;
+  padding: 96px 0 64px;
+}
+
+.hero-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(70, 107, 255, 0.25);
+}
+
+.hero-title {
+  font-size: 48px;
+  letter-spacing: -1px;
+  margin-top: 24px;
+}
+
+.hero-subtitle {
+  display: block;
+  margin: 16px auto 0;
+  max-width: 560px;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.hero-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-h);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent);
+}
+
+.section {
+  padding: 56px 0;
+  border-top: 1px solid var(--border);
+}
+
+.section-title {
+  font-size: 28px;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 720px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.feature-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.feature-title {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.feature-desc {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.screenshot-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+.screenshot {
+  max-width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.requirements {
+  text-align: center;
+}
+
+.req-table {
+  margin: 0 auto;
+  font-size: 14px;
+}
+
+.req-table th,
+.req-table td {
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.req-table th {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.footer {
+  text-align: center;
+  padding: 32px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
